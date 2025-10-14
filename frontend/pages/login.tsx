@@ -4,8 +4,8 @@ import { useRouter } from 'next/router'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('admin123')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,9 +36,19 @@ export default function LoginPage() {
         credentials: 'include',
         body: JSON.stringify({ username, password })
       })
-      if (!res.ok) throw new Error(await res.text())
-      // redirect to home
-      window.location.href = '/'
+  if (!res.ok) throw new Error(await res.text())
+      // Wait until /me reflects authenticated state (cookie write can be async)
+      const start = Date.now()
+      let ok = false
+      while (Date.now() - start < 3000) {
+        try {
+          const r = await fetch(base + '/me/', { credentials: 'include' })
+          const d = await r.json()
+          if (d?.is_authenticated) { ok = true; break }
+        } catch {}
+        await new Promise(res => setTimeout(res, 200))
+      }
+      router.replace('/')
     } catch (e: any) {
       setError(e?.message ?? 'Erreur de connexion')
     } finally { setLoading(false) }
@@ -55,7 +65,7 @@ export default function LoginPage() {
           <Button type="submit" variant="contained" fullWidth disabled={loading}>Se connecter</Button>
         </form>
         <Typography variant="body2" sx={{ mt: 2 }}>
-          Pas de compte ? Un administrateur peut vous créer un utilisateur via /admin.
+          Pas de compte ? <a href="/signup">Créer un compte</a>
         </Typography>
       </Paper>
     </Box>

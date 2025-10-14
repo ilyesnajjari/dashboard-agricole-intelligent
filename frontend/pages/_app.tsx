@@ -24,13 +24,19 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         if (!active) return
         setIsAuthenticated(!!data?.is_authenticated)
         setAuthChecked(true)
-        // If not authenticated and not already on /login, redirect
-        if (!data?.is_authenticated && router.pathname !== '/login') {
+        const publicRoutes = ['/login', '/signup']
+        // If not authenticated and not on a public route, redirect to /login
+        if (!data?.is_authenticated && !publicRoutes.includes(router.pathname)) {
           router.replace('/login')
+        }
+        // If authenticated but on a public route, redirect to home
+        if (data?.is_authenticated && publicRoutes.includes(router.pathname)) {
+          router.replace('/')
         }
       } catch (_e) {
         // On error, assume not authenticated and redirect unless already on /login
-        if (router.pathname !== '/login') {
+        const publicRoutes = ['/login', '/signup']
+        if (!publicRoutes.includes(router.pathname)) {
           router.replace('/login')
         }
         setIsAuthenticated(false)
@@ -49,12 +55,16 @@ export default function MyApp({ Component, pageProps }: AppProps) {
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>Dashboard Agricole Intelligent</title>
         </Head>
-        {/* While checking auth (on non-login routes), avoid flashing content */}
-        {router.pathname === '/login' || authChecked ? (
-          <Layout>
-            <Component {...pageProps} />
-          </Layout>
-        ) : null}
+        {/* Render login (and signup) pages bare, without the Layout */}
+        {['/login', '/signup'].includes(router.pathname) ? (
+          <Component {...pageProps} />
+        ) : (
+          authChecked ? (
+            <Layout>
+              <Component {...pageProps} />
+            </Layout>
+          ) : null
+        )}
       </ThemeProvider>
     </ColorModeContext.Provider>
   )

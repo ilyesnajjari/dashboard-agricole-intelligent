@@ -110,18 +110,24 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]
 
-# Dev: allow credentials from frontend origin for session-based auth
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = False
-    CORS_ALLOW_CREDENTIALS = True
-    CORS_ALLOWED_ORIGINS = [
-        'http://localhost:3000',
-    ]
-    CSRF_TRUSTED_ORIGINS = [
-        'http://localhost:3000',
-    ]
+# Cookie settings for local dev (frontend on 3000, backend on 8000)
+# Use SameSite='Lax' so cookies are sent for same-site requests (localhost:3000 -> localhost:8000)
+# and avoid Chrome blocking "SameSite=None" cookies without the Secure attribute over HTTP.
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = False  # HTTP in dev
+CSRF_COOKIE_SECURE = False     # HTTP in dev
 
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': (

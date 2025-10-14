@@ -14,7 +14,7 @@ export async function getDemandPlan(date: string, top_n?: number): Promise<{ dat
   const url = new URL(baseURL + '/ai/demand-plan/');
   url.searchParams.set('date', date);
   if (top_n !== undefined) url.searchParams.set('top_n', String(top_n));
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { credentials: 'include' });
   if (!res.ok) throw new Error('Failed to fetch demand plan');
   return res.json();
 }

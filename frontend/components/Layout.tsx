@@ -1,6 +1,7 @@
 import React from 'react'
 import Link from 'next/link'
-import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography, MenuItem, Select, Tooltip } from '@mui/material'
+import { AppBar, Box, Button, Container, IconButton, Toolbar, Typography, MenuItem, Select, Tooltip, TextField, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress } from '@mui/material'
+import Autocomplete from '@mui/material/Autocomplete'
 import { listUsersForImpersonation, startImpersonation, stopImpersonation } from '../api/admin'
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
@@ -13,6 +14,9 @@ export default function Layout({ children }: Props) {
   const [me, setMe] = React.useState<any>(null)
   const [users, setUsers] = React.useState<any[]>([])
   const [selected, setSelected] = React.useState<number | ''>('')
+  const [query, setQuery] = React.useState('')
+  const [detail, setDetail] = React.useState<any | null>(null)
+  const [impLoading, setImpLoading] = React.useState(false)
 
   React.useEffect(() => {
     ;(async () => {
@@ -39,6 +43,8 @@ export default function Layout({ children }: Props) {
           <Button color="inherit" component={Link} href="/produits">Produits</Button>
           <Button color="inherit" component={Link} href="/recoltes">Récoltes</Button>
           <Button color="inherit" component={Link} href="/ventes">Ventes</Button>
+          <Button color="inherit" component={Link} href="/achats">Achats</Button>
+          <Button color="inherit" component={Link} href="/comptabilite">Comptabilité</Button>
           {!me || !me.is_authenticated ? (
             <Button color="inherit" component={Link} href="/login">Se connecter</Button>
           ) : (
@@ -51,12 +57,46 @@ export default function Layout({ children }: Props) {
           )}
           {me && me.is_staff && (
             <>
-              <Select size="small" value={selected} onChange={(e) => setSelected(e.target.value as any)} sx={{ mr: 1, color: 'inherit' }}>
-                <MenuItem value="">Impersonate...</MenuItem>
-                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.username}</MenuItem>)}
-              </Select>
-              <Button color="inherit" onClick={async () => { if (selected) { await startImpersonation(Number(selected)); window.location.reload() } }}>Start</Button>
-              <Button color="inherit" onClick={async () => { await stopImpersonation(); window.location.reload() }}>Stop</Button>
+              <Autocomplete
+                size="small"
+                sx={{ width: 240, bgcolor: 'background.paper', borderRadius: 1 }}
+                options={users}
+                getOptionLabel={(u:any) => (u?.username ? `${u.username}${u.email ? ' ('+u.email+')' : ''}` : '')}
+                renderInput={(params) => <TextField {...params} placeholder="Rechercher user" />}
+                onInputChange={(_, value) => setQuery(value)}
+                onChange={(_, value:any) => setSelected(value ? value.id : '')}
+                loading={false}
+                filterOptions={(opts) => {
+                  const q = (query||'').toLowerCase()
+                  if (!q) return opts
+                  return opts.filter((u:any) => (u.username||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q))
+                }}
+              />
+              <Button color="inherit" onClick={() => { const u = users.find(x => x.id === selected); if (u) setDetail(u) }} disabled={!selected} sx={{ ml: 1 }}>Détails</Button>
+              <Button color="inherit" disabled={!selected || impLoading} onClick={async () => {
+                if (!selected) return
+                setImpLoading(true)
+                try {
+                  await startImpersonation(Number(selected))
+                  // refresh /me in place
+                  const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+                  const res = await fetch(base + '/me/', { credentials: 'include' })
+                  const data = await res.json()
+                  setMe(data)
+                } finally { setImpLoading(false) }
+              }}>
+                {impLoading ? <CircularProgress size={16} color="inherit" /> : 'Start'}
+              </Button>
+              <Button color="inherit" disabled={impLoading} onClick={async () => {
+                setImpLoading(true)
+                try {
+                  await stopImpersonation()
+                  const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+                  const res = await fetch(base + '/me/', { credentials: 'include' })
+                  const data = await res.json()
+                  setMe(data)
+                } finally { setImpLoading(false) }
+              }}>Stop</Button>
             </>
           )}
           <IconButton color="inherit" onClick={toggle} aria-label="toggle theme">
@@ -65,6 +105,25 @@ export default function Layout({ children }: Props) {
         </Toolbar>
       </AppBar>
       <Container sx={{ py: 3 }}>{children}</Container>
+      <Dialog open={!!detail} onClose={()=>setDetail(null)}>
+        <DialogTitle>Utilisateur</DialogTitle>
+        <DialogContent>
+          {detail && (
+            <DialogContentText component="div">
+              <Typography><b>Username:</b> {detail.username}</Typography>
+              <Typography><b>Email:</b> {detail.email || '-'}</Typography>
+              <Typography><b>Actif:</b> {String(detail.is_active)}</Typography>
+              <Typography><b>Staff:</b> {String(detail.is_staff)}</Typography>
+              <Typography><b>Superuser:</b> {String(detail.is_superuser)}</Typography>
+              <Typography><b>Dernière connexion:</b> {detail.last_login || '-'}</Typography>
+              <Typography><b>Créé le:</b> {detail.date_joined || '-'}</Typography>
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={()=>setDetail(null)}>Fermer</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
