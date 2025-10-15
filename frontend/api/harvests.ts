@@ -43,6 +43,14 @@ export async function updateHarvest(id: number, payload: Partial<Harvest>) {
   return http<Harvest>(`/harvests/${id}/`, { method: 'PATCH', body: JSON.stringify(payload) })
 }
 
+export async function deleteHarvest(id: number) {
+  const res = await fetch(base + `/harvests/${id}/`, { method: 'DELETE' })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || res.statusText)
+  }
+}
+
 export type HarvestAggregateRow = {
   date: string
   sum_quantity_kg: number

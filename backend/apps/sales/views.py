@@ -6,8 +6,8 @@ from django.db.models import Sum, Avg
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
 from django_filters.rest_framework import DjangoFilterBackend
 import csv
-from .models import Sale
-from .serializers import SaleSerializer
+from .models import Sale, SaleItem
+from .serializers import SaleSerializer, SaleItemSerializer
 
 
 class SaleViewSet(viewsets.ModelViewSet):
@@ -173,3 +173,13 @@ class SaleViewSet(viewsets.ModelViewSet):
                 'sum_total_amount': float(row['sum_total'] or 0),
             })
         return Response(data)
+
+
+class SaleItemViewSet(viewsets.ModelViewSet):
+    queryset = SaleItem.objects.select_related('sale', 'product').all()
+    serializer_class = SaleItemSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = {
+        'sale': ['exact'],
+        'product': ['exact'],
+    }

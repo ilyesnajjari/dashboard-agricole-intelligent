@@ -40,7 +40,6 @@ export default function Layout({ children }: Props) {
         <Toolbar sx={{ gap: 2 }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>Dashboard Agricole</Typography>
           <Button color="inherit" component={Link} href="/">Accueil</Button>
-          <Button color="inherit" component={Link} href="/produits">Produits</Button>
           <Button color="inherit" component={Link} href="/recoltes">Récoltes</Button>
           <Button color="inherit" component={Link} href="/ventes">Ventes</Button>
           <Button color="inherit" component={Link} href="/achats">Achats</Button>

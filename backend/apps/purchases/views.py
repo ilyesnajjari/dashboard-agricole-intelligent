@@ -1,8 +1,19 @@
 from rest_framework import viewsets
-from .models import Purchase
-from .serializers import PurchaseSerializer
+from django_filters.rest_framework import DjangoFilterBackend
+from .models import Purchase, PurchaseItem
+from .serializers import PurchaseSerializer, PurchaseItemSerializer
 
 
 class PurchaseViewSet(viewsets.ModelViewSet):
     queryset = Purchase.objects.all()
     serializer_class = PurchaseSerializer
+
+
+class PurchaseItemViewSet(viewsets.ModelViewSet):
+    queryset = PurchaseItem.objects.select_related('purchase', 'product').all()
+    serializer_class = PurchaseItemSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = {
+        'purchase': ['exact'],
+        'product': ['exact'],
+    }

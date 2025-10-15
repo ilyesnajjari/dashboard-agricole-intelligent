@@ -14,11 +14,11 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 
 export type Sale = {
   id?: number
-  product: number
+  product?: number
   date: string
   market?: string
-  quantity_kg: number
-  unit_price: number
+  quantity_kg?: number
+  unit_price?: number
   total_amount?: number
 }
 
@@ -47,9 +47,9 @@ export type SalesAggregateRow = {
   sum_total_amount: number
 }
 
-export async function aggregateSales(params: { product: number, period: 'day'|'week'|'month', fromDate?: string, toDate?: string }) {
+export async function aggregateSales(params: { product?: number, period: 'day'|'week'|'month', fromDate?: string, toDate?: string }) {
   const qs = new URLSearchParams()
-  qs.append('product', String(params.product))
+  if (typeof params.product !== 'undefined') qs.append('product', String(params.product))
   qs.append('period', params.period)
   if (params.fromDate) qs.append('date__gte', params.fromDate)
   if (params.toDate) qs.append('date__lte', params.toDate)

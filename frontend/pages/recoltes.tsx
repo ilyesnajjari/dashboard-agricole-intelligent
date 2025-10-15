@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createHarvest, listHarvests, updateHarvest, aggregateHarvests, type Harvest, type HarvestAggregateRow } from '../api/harvests'
+import { createHarvest, listHarvests, updateHarvest, aggregateHarvests, deleteHarvest, type Harvest, type HarvestAggregateRow } from '../api/harvests'
 import { listProducts, type Product } from '../api/products'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts'
 import {
   Box, Button, Grid, MenuItem, Select, TextField, Typography, Snackbar, Alert, Paper, Skeleton
 } from '@mui/material'
-import { DataGrid, GridColDef, GridRowModel } from '@mui/x-data-grid'
+import { DataGrid, GridColDef, GridValueGetter, GridRowModel, GridValueGetterParams } from '@mui/x-data-grid'
 
 export default function RecoltesPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -40,6 +40,13 @@ export default function RecoltesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct])
 
+  // Auto-refresh list when filters change so the costs/m² histogram stays in sync
+  useEffect(() => {
+    if (!selectedProduct) return
+    refresh()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDate, toDate, cultivation])
+
   const refresh = async () => {
     if (!selectedProduct) return
     setLoading(true)
@@ -59,30 +66,33 @@ export default function RecoltesPage() {
   }
 
   // Load aggregated series (all + by culture)
-  useEffect(() => {
+  const refreshAggregates = async () => {
     if (!selectedProduct) return
-    (async () => {
-      try {
-        const argsBase = { product: Number(selectedProduct), period, date__gte: fromDate || undefined, date__lte: toDate || undefined } as const
-        const [all, serre, plein] = await Promise.all([
-          aggregateHarvests(argsBase as any),
-          aggregateHarvests({ ...(argsBase as any), cultivation_type: 'serre' }),
-          aggregateHarvests({ ...(argsBase as any), cultivation_type: 'plein_champ' }),
-        ])
-        setAggAll(all)
-        setAggSerre(serre)
-        setAggPlein(plein)
-      } catch (e) {
-        // keep silent for aggregates to not block UI; could surface toast if needed
-      }
-    })()
+    try {
+      const argsBase = { product: Number(selectedProduct), period, date__gte: fromDate || undefined, date__lte: toDate || undefined } as const
+      const [all, serre, plein] = await Promise.all([
+        aggregateHarvests(argsBase as any),
+        aggregateHarvests({ ...(argsBase as any), cultivation_type: 'serre' }),
+        aggregateHarvests({ ...(argsBase as any), cultivation_type: 'plein_champ' }),
+      ])
+      setAggAll(all)
+      setAggSerre(serre)
+      setAggPlein(plein)
+    } catch (e) {
+      // silent
+    }
+  }
+
+  useEffect(() => {
+    refreshAggregates()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProduct, fromDate, toDate, period])
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       await createHarvest({ ...form, product: Number(selectedProduct) })
-      setForm(f => ({ ...f, quantity_kg: 0, area_m2: 0, parcel: '' }))
+  setForm(f => ({ ...f, quantity_kg: 0, parcel: '' }))
       setToast({open:true, msg:'Récolte ajoutée', severity:'success'})
       refresh()
     } catch (e: any) {
@@ -128,18 +138,60 @@ export default function RecoltesPage() {
   }, [aggSerre, aggPlein, cultivation])
 
   const columns: GridColDef[] = [
-    { field: 'date', headerName: 'Date', flex: 1, editable: false },
-    { field: 'parcel', headerName: 'Parcelle', flex: 1, editable: true, valueGetter: (p) => p.row.parcel || '' },
-    { field: 'cultivation_type', headerName: 'Culture', flex: 1, editable: true, type: 'singleSelect', valueOptions: ['serre','plein_champ'] },
-    { field: 'quantity_kg', headerName: 'Quantité (kg)', type: 'number', flex: 1, editable: true },
-    { field: 'area_m2', headerName: 'Surface (m²)', type: 'number', flex: 1, editable: true },
-    { field: 'yield', headerName: 'Rdt (kg/m²)', type: 'number', flex: 1, valueGetter: (p) => (p.row.area_m2 ? (Number(p.row.quantity_kg)/Number(p.row.area_m2)) : 0).toFixed(3) },
+  { field: 'date', headerName: 'Date', flex: 1, editable: false },
+  { 
+    field: 'parcel', 
+    headerName: 'Parcelle', 
+    flex: 1, 
+    editable: true, 
+    valueGetter: (p: GridValueGetterParams) => p.row?.parcel ?? '' 
+  },
+  { 
+    field: 'cultivation_type', 
+    headerName: 'Culture', 
+    flex: 1, 
+    editable: true, 
+    type: 'singleSelect', 
+    valueOptions: ['serre','plein_champ'] 
+  },
+  { 
+    field: 'quantity_kg', 
+    headerName: 'Quantité (kg)', 
+    type: 'number', 
+    flex: 1, 
+    editable: true 
+  },
+  {
+    field: 'actions',
+    headerName: 'Actions',
+    sortable: false,
+    filterable: false,
+    width: 120,
+    renderCell: (params) => {
+      const onDelete = async () => {
+        const id = Number(params.row.id)
+        const confirmed = window.confirm('Supprimer cette récolte ?')
+        if (!confirmed) return
+        try {
+          await deleteHarvest(id)
+          setToast({ open: true, msg: 'Récolte supprimée', severity: 'success' })
+          await refresh()
+          await refreshAggregates()
+        } catch (e: any) {
+          setToast({ open: true, msg: 'Erreur suppression: ' + (e?.message ?? ''), severity: 'error' })
+        }
+      }
+      return (
+        <Button color="error" size="small" onClick={onDelete}>Supprimer</Button>
+      )
+    }
+  }
   ]
 
   const processRowUpdate = async (newRow: GridRowModel, oldRow: GridRowModel) => {
     try {
       const changed: any = {}
-      ;(['parcel','cultivation_type','quantity_kg','area_m2'] as const).forEach(k => {
+      ;(['parcel','cultivation_type','quantity_kg'] as const).forEach(k => {
         if (newRow[k] !== oldRow[k]) changed[k] = newRow[k]
       })
       if (Object.keys(changed).length) {
@@ -177,9 +229,9 @@ export default function RecoltesPage() {
   }
 
   const exportCsv = () => {
-    const rows = [['date','parcel','cultivation_type','quantity_kg','area_m2','yield_kg_per_m2']]
+    const rows = [['date','parcel','cultivation_type','quantity_kg']]
     items.forEach(h => rows.push([
-      h.date, h.parcel || '', h.cultivation_type || '', String(h.quantity_kg), String(h.area_m2), String(h.yield_kg_per_m2 ?? (h.area_m2 ? h.quantity_kg / h.area_m2 : 0))
+      h.date, h.parcel || '', h.cultivation_type || '', String(h.quantity_kg)
     ]))
     const csv = rows.map(r => r.map(f => typeof f === 'string' && f.includes(',') ? `"${f}"` : f).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -191,13 +243,14 @@ export default function RecoltesPage() {
     URL.revokeObjectURL(url)
   }
 
-  const costData = useMemo(() => {
-    return items.map(h => ({ date: h.date, cost_per_m2: Number(h.cost_per_m2 ?? 0) }))
-  }, [items])
+  // Removed costs per m² chart per request
 
   return (
     <Box p={3}>
-      <Typography variant="h4" gutterBottom>Récoltes</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+        <Typography variant="h4" gutterBottom sx={{ m: 0 }}>Récoltes</Typography>
+        <Button variant="outlined" href="/produits">Produits</Button>
+      </Box>
 
       <Grid container spacing={2} alignItems="center">
         <Grid item xs={12} md={3}>
@@ -254,9 +307,7 @@ export default function RecoltesPage() {
           <Grid item xs={12} md={2}>
             <TextField fullWidth type="number" inputProps={{ step: '0.01' }} label="Quantité (kg)" value={form.quantity_kg} onChange={(e) => setForm({ ...form, quantity_kg: Number(e.target.value) })} required />
           </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField fullWidth type="number" inputProps={{ step: '0.01' }} label="Surface (m²)" value={form.area_m2} onChange={(e) => setForm({ ...form, area_m2: Number(e.target.value) })} required />
-          </Grid>
+          {/* Surface (m²) removed per request */}
           <Grid item xs={12} md={2}>
             <Button type="submit" variant="contained">Enregistrer</Button>
           </Grid>
@@ -288,24 +339,7 @@ export default function RecoltesPage() {
             </Box>
           </Paper>
         </Grid>
-        <Grid item xs={12} md={5}>
-          <Paper sx={{ p:2 }}>
-            <Typography variant="h6" gutterBottom>Histogramme des coûts/m²</Typography>
-            <Box sx={{ width: '100%', height: 320 }}>
-              {loading ? <Skeleton variant="rounded" width="100%" height={320} /> : (
-              <ResponsiveContainer>
-                <BarChart data={costData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tickFormatter={formatTick} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="cost_per_m2" fill="#f57c00" />
-                </BarChart>
-              </ResponsiveContainer>
-              )}
-            </Box>
-          </Paper>
-        </Grid>
+        {/* Costs per m² chart removed per request */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p:2 }}>
             <Typography variant="h6" gutterBottom>Volume agrégé ({period === 'day' ? 'journalier' : period === 'week' ? 'hebdomadaire' : 'mensuel'}) {cultivation ? `— ${cultivation === 'serre' ? 'Serre' : 'Plein champ'}` : ''}</Typography>

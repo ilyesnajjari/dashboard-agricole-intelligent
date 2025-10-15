@@ -3,8 +3,8 @@ from rest_framework.routers import DefaultRouter
 
 from apps.products.views import ProductViewSet
 from apps.harvests.views import HarvestViewSet
-from apps.sales.views import SaleViewSet
-from apps.purchases.views import PurchaseViewSet
+from apps.sales.views import SaleViewSet, SaleItemViewSet
+from apps.purchases.views import PurchaseViewSet, PurchaseItemViewSet
 from django.http import JsonResponse
 from django.db.models import Sum
 from apps.sales.models import Sale
@@ -193,7 +193,10 @@ router = DefaultRouter()
 router.register(r'products', ProductViewSet, basename='product')
 router.register(r'harvests', HarvestViewSet, basename='harvest')
 router.register(r'sales', SaleViewSet, basename='sale')
+router.register(r'sale-items', SaleItemViewSet, basename='sale-item')
 router.register(r'accounting', AccountingEntryViewSet, basename='accounting')
+router.register(r'purchase-items', PurchaseItemViewSet, basename='purchase-item')
+router.register(r'purchases', PurchaseViewSet, basename='purchase')
 
 urlpatterns = [
     # expose current user info for frontend (session-based auth)
@@ -223,5 +226,3 @@ urlpatterns = [
     # Annual KPI for a given year (defaults to current year) with monthly breakdown (robust)
     path('kpi/annual/', annual_kpi_view),
 ]
-
-router.register(r'purchases', PurchaseViewSet, basename='purchase')

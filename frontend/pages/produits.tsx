@@ -8,7 +8,7 @@ export default function ProduitsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState<Product>({ name: '', category: 'fruit', default_unit: 'kg', default_price: 0, is_active: true })
+  const [form, setForm] = useState<Product>({ name: '', category: 'fruit', default_unit: 'kg', is_active: true })
   const [toast, setToast] = useState<{open: boolean, msg: string, severity: 'success'|'error'}>({open:false, msg:'', severity:'success'})
 
   const refresh = async () => {
@@ -31,7 +31,7 @@ export default function ProduitsPage() {
     try {
       await createProduct(form)
       setShowAdd(false)
-      setForm({ name: '', category: 'fruit', default_unit: 'kg', default_price: 0, is_active: true })
+  setForm({ name: '', category: 'fruit', default_unit: 'kg', is_active: true })
       refresh()
     } catch (e: any) {
       alert('Erreur: ' + (e?.message ?? ''))
@@ -49,7 +49,7 @@ export default function ProduitsPage() {
     { field: 'name', headerName: 'Nom', flex: 1, editable: true },
     { field: 'category', headerName: 'Catégorie', flex: 1, editable: true, type: 'singleSelect', valueOptions: ['fruit','vegetable','other'] },
     { field: 'default_unit', headerName: 'Unité', flex: 1, editable: true },
-    { field: 'default_price', headerName: 'Prix défaut (€)', type: 'number', flex: 1, editable: true },
+  // price column removed per request
     { field: 'is_active', headerName: 'Actif', type: 'boolean', flex: 1, editable: true, valueFormatter: (p) => (p.value ? 'Oui' : 'Non') },
     { field: 'actions', headerName: 'Actions', sortable: false, flex: 1, renderCell: (p) => (
       <Button color="error" onClick={() => onDelete(p.row.id)}>Supprimer</Button>
@@ -59,7 +59,7 @@ export default function ProduitsPage() {
   const processRowUpdate = async (newRow: GridRowModel, oldRow: GridRowModel) => {
     try {
       const changed: any = {}
-      ;(['name','category','default_unit','default_price','is_active'] as const).forEach(k => {
+      ;(['name','category','default_unit','is_active'] as const).forEach(k => {
         if (newRow[k] !== oldRow[k]) changed[k] = newRow[k]
       })
       if (Object.keys(changed).length) {
@@ -78,7 +78,8 @@ export default function ProduitsPage() {
     <Box p={3}>
       <Typography variant="h4" gutterBottom>Produits</Typography>
       <Box mb={2}>
-        <Button variant="contained" onClick={() => setShowAdd(true)}>Ajouter un produit</Button>
+        {/* Replace add product button with a link to harvests page */}
+        <Button variant="contained" href="/recoltes">Aller aux récoltes</Button>
       </Box>
       {loading && <Typography>Chargement…</Typography>}
       {error && <Alert severity="error">{error}</Alert>}
@@ -114,9 +115,7 @@ export default function ProduitsPage() {
             <Grid item xs={12} md={3}>
               <TextField fullWidth label="Unité" value={form.default_unit} onChange={(e) => setForm({ ...form, default_unit: e.target.value })} />
             </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField fullWidth type="number" inputProps={{ step: '0.01' }} label="Prix défaut (€)" value={form.default_price} onChange={(e) => setForm({ ...form, default_price: Number(e.target.value) })} />
-            </Grid>
+            {/* Price input removed per request */}
           </Grid>
         </DialogContent>
         <DialogActions>
