@@ -45,8 +45,8 @@ export default function Home({ initialAnnual, initialActivity }: Props) {
   }
 
   useEffect(() => {
-    // Skip initial fetch if we have SSR data for the current year
-    if (year === new Date().getFullYear() && annual) return
+    // Always fetch when year changes
+    setAnnual(null)
 
     const controller = new AbortController()
     loadAnnual(controller.signal)
@@ -161,25 +161,23 @@ export default function Home({ initialAnnual, initialActivity }: Props) {
       </Box>
 
       {/* Analyse des statistiques */}
-      {
-        annual && (
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h6" gutterBottom>Analyse des statistiques</Typography>
-            <Paper sx={{ p: 2 }}>
-              {stats ? (
-                <>
-                  <Typography>Meilleur mois: <b>{new Date(stats.best.month + '-01').toLocaleDateString('fr-FR', { month: 'long' })}</b> ({fmtEUR.format(stats.best.profit)})</Typography>
-                  <Typography>Pire mois: <b>{new Date(stats.worst.month + '-01').toLocaleDateString('fr-FR', { month: 'long' })}</b> ({fmtEUR.format(stats.worst.profit)})</Typography>
-                  <Typography>Bénéfice moyen mensuel: <b>{fmtEUR.format(stats.avgProfit)}</b></Typography>
-                  <Typography>Tendance: <b style={{ color: stats.trendUp ? '#2e7d32' : '#c62828' }}>{stats.trendUp ? 'Hausse' : 'Baisse'}</b></Typography>
-                </>
-              ) : (
-                <Typography variant="body2" color="text.secondary">Pas assez de données pour l'analyse.</Typography>
-              )}
-            </Paper>
-          </Box>
-        )
-      }
+      {annual && (
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="h6" gutterBottom>Analyse des statistiques</Typography>
+          <Paper sx={{ p: 2 }}>
+            {stats ? (
+              <>
+                <Typography>Meilleur mois: <b>{new Date(stats.best.month + '-01').toLocaleDateString('fr-FR', { month: 'long' })}</b> ({fmtEUR.format(stats.best.profit)})</Typography>
+                <Typography>Pire mois: <b>{new Date(stats.worst.month + '-01').toLocaleDateString('fr-FR', { month: 'long' })}</b> ({fmtEUR.format(stats.worst.profit)})</Typography>
+                <Typography>Bénéfice moyen mensuel: <b>{fmtEUR.format(stats.avgProfit)}</b></Typography>
+                <Typography>Tendance: <b style={{ color: stats.trendUp ? '#2e7d32' : '#c62828' }}>{stats.trendUp ? 'Hausse' : 'Baisse'}</b></Typography>
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary">Pas assez de données pour l'analyse.</Typography>
+            )}
+          </Paper>
+        </Box>
+      )}
 
       {/* Activité Récente */}
       <Box sx={{ mt: 4 }}>
@@ -202,7 +200,7 @@ export default function Home({ initialAnnual, initialActivity }: Props) {
           )}
         </Paper>
       </Box>
-    </Box >
+    </Box>
   )
 }
 
@@ -210,7 +208,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { req } = context
   const year = new Date().getFullYear()
   // Use localhost for server-side fetch if not defined
-  const base = process.env.NEXT_PUBLIC_API_BASE || 'http://127.0.0.1:8000/api'
+  const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
 
   const cookie = req.headers.cookie || ''
 

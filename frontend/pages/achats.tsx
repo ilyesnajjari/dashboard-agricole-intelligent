@@ -395,7 +395,9 @@ export default function AchatsPage() {
                   />
                   <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1, display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
                     <Typography variant="h6">
-                      Total: <strong>{items.filter(r => !category || String(r.category) === String(category)).reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)} €</strong>
+                      Total (Global): <strong>{items.filter(r => !category || String(r.category) === String(category)).reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)} €</strong>
+                      &nbsp; | &nbsp;
+                      Total ({new Date().getFullYear()}): <strong>{items.filter(r => (!category || String(r.category) === String(category)) && new Date(r.date).getFullYear() === new Date().getFullYear()).reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)} €</strong>
                     </Typography>
                   </Box>
                 </>

@@ -42,12 +42,12 @@ export default function VentesPage() {
     const map = new Map<string, number>()
     items.forEach(sale => {
       const date = sale.date
-      const qty = Number(sale.quantity_kg || 0)
-      map.set(date, (map.get(date) || 0) + qty)
+      const amount = Number(sale.total_amount || 0)
+      map.set(date, (map.get(date) || 0) + amount)
     })
     // Sort by date
     return Array.from(map.entries())
-      .map(([date, quantity]) => ({ date, quantity }))
+      .map(([date, amount]) => ({ date, amount }))
       .sort((a, b) => a.date.localeCompare(b.date))
   }, [items])
   // No aggregate chart/table here
@@ -436,29 +436,29 @@ export default function VentesPage() {
       <Grid container spacing={2} mt={1}>
         <Grid item xs={12}>
           <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="h6" gutterBottom>Évolution des Quantités Vendues (kg)</Typography>
+            <Typography variant="h6" gutterBottom>Évolution du Chiffre d'Affaires (€)</Typography>
             <Box sx={{ width: '100%', height: 300 }}>
               {loading ? <Skeleton variant="rounded" width="100%" height={300} /> : (
                 chartData.length > 0 ? (
                   <ResponsiveContainer>
                     <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                       <defs>
-                        <linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#1976d2" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#1976d2" stopOpacity={0} />
+                        <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#2e7d32" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#2e7d32" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <XAxis
                         dataKey="date"
                         tickFormatter={(str) => new Date(str).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                       />
-                      <YAxis tickFormatter={(val) => `${val}kg`} />
+                      <YAxis tickFormatter={(val) => `${val}€`} />
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
                       <ReTooltip
-                        formatter={(value: number) => [`${value.toFixed(2)} kg`, 'Quantité Vendue']}
+                        formatter={(value: number) => [`${value.toFixed(2)} €`, "Chiffre d'Affaires"]}
                         labelFormatter={(label) => new Date(label).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                       />
-                      <Area type="monotone" dataKey="quantity" stroke="#1976d2" fillOpacity={1} fill="url(#colorQty)" />
+                      <Area type="monotone" dataKey="amount" stroke="#2e7d32" fillOpacity={1} fill="url(#colorAmount)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (

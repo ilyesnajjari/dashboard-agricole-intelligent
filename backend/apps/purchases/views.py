@@ -12,6 +12,11 @@ class PurchaseCategoryViewSet(viewsets.ModelViewSet):
 class PurchaseViewSet(viewsets.ModelViewSet):
     queryset = Purchase.objects.all()
     serializer_class = PurchaseSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = {
+        'date': ['exact', 'gte', 'lte', 'year'],
+        'category': ['exact'],
+    }
 
 
 class PurchaseItemViewSet(viewsets.ModelViewSet):
