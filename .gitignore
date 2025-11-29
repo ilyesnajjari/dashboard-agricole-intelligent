@@ -27,6 +27,3 @@ pnpm-debug.log*
 # VS Code
 .vscode/
 
-# Docker
-**/.docker-cache/
-**/.cache/

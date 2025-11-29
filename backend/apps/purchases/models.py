@@ -2,6 +2,16 @@ from django.db import models
 from apps.products.models import Product
 
 
+class PurchaseCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        verbose_name_plural = "Purchase Categories"
+
+    def __str__(self):
+        return self.name
+
+
 class Purchase(models.Model):
     CATEGORY_CHOICES = (
         ('tools', 'Outils'),
@@ -10,9 +20,13 @@ class Purchase(models.Model):
     )
 
     date = models.DateField()
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    category_text = models.CharField(max_length=20, choices=CATEGORY_CHOICES, null=True, blank=True)
+    category = models.ForeignKey(PurchaseCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='purchases')
     description = models.CharField(max_length=200)
-    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Optional: either provide amount directly OR quantity_kg + unit_price
+    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    quantity_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Quantité en kg (optionnel)")
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Prix unitaire par kg (optionnel)")
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -34,7 +48,10 @@ class Purchase(models.Model):
             self.amount = total
 
     def save(self, *args, **kwargs):
-        # If there are items, recompute amount from them
+        # Auto-calculate amount from quantity_kg × unit_price if both provided
+        if self.quantity_kg is not None and self.unit_price is not None:
+            self.amount = self.quantity_kg * self.unit_price
+        # If there are items, recompute amount from them (for PurchaseItem-based purchases)
         try:
             if hasattr(self, 'items') and self.items.exists():
                 self.recalculate_amount()

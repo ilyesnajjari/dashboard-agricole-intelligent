@@ -1,7 +1,12 @@
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Purchase, PurchaseItem
-from .serializers import PurchaseSerializer, PurchaseItemSerializer
+from .models import Purchase, PurchaseItem, PurchaseCategory
+from .serializers import PurchaseSerializer, PurchaseItemSerializer, PurchaseCategorySerializer
+
+
+class PurchaseCategoryViewSet(viewsets.ModelViewSet):
+    queryset = PurchaseCategory.objects.all()
+    serializer_class = PurchaseCategorySerializer
 
 
 class PurchaseViewSet(viewsets.ModelViewSet):

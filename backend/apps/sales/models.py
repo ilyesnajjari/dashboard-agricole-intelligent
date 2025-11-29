@@ -1,17 +1,27 @@
 from django.db import models
+from django.contrib.auth.models import User
 from apps.products.models import Product
 
 
-class Sale(models.Model):
-    MARKET_CHOICES = (
-        ('velleron', 'Marché de Velleron'),
-        ('direct', 'Vente directe'),
-        ('other', 'Autre'),
-    )
+class Market(models.Model):
+    """Market or sales channel (e.g., 'Marché de Velleron', 'Vente directe', custom customers)"""
+    name = models.CharField(max_length=100, unique=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='markets', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class Sale(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='sales', null=True, blank=True)
     date = models.DateField()
-    market = models.CharField(max_length=20, choices=MARKET_CHOICES, default='velleron')
+    # Temporarily keep as CharField for migration
+    market_old = models.CharField(max_length=20, null=True, blank=True)
+    market = models.ForeignKey(Market, on_delete=models.SET_NULL, related_name='sales', null=True, blank=True)
     quantity_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -22,6 +32,20 @@ class Sale(models.Model):
         ordering = ['-date']
 
     def recalculate_total(self):
+        # If the instance isn't saved yet, we cannot access the reverse relation
+        # (related managers require a primary key). In that case compute a
+        # sensible fallback from the sale-level quantity/unit_price if present
+        # and return early. This avoids ValueError during create() where Django
+        # calls save(force_insert=True) before related items exist.
+        if getattr(self, 'pk', None) is None:
+            # Only recalculate if we have meaningful quantity/price
+            if self.quantity_kg and self.unit_price:
+                try:
+                    self.total_amount = (self.quantity_kg or 0) * (self.unit_price or 0)
+                except Exception:
+                    pass
+            return
+
         # If there are itemized lines, prefer their sum
         items = getattr(self, 'items', None)
         if items is not None and items.exists():
@@ -33,8 +57,8 @@ class Sale(models.Model):
                     continue
             self.total_amount = total
         else:
-            # Fallback: compute from sale-level qty/price if present; otherwise keep existing
-            if self.quantity_kg is not None and self.unit_price is not None:
+            # Fallback: compute from sale-level qty/price if present AND non-zero; otherwise keep existing
+            if self.quantity_kg and self.unit_price:
                 try:
                     self.total_amount = (self.quantity_kg or 0) * (self.unit_price or 0)
                 except Exception:

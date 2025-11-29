@@ -4,6 +4,6 @@ from .models import Purchase
 
 @admin.register(Purchase)
 class PurchaseAdmin(admin.ModelAdmin):
-    list_display = ("id", "date", "category", "description", "amount")
-    list_filter = ("category", "date")
+    list_display = ('date', 'description', 'category_text', 'amount')
+    list_filter = ('category_text', 'date')
     search_fields = ("description", "notes")

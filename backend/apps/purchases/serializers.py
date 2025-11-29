@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import Purchase, PurchaseItem
+from .models import Purchase, PurchaseItem, PurchaseCategory
+
+
+class PurchaseCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PurchaseCategory
+        fields = '__all__'
 
 
 class PurchaseItemSerializer(serializers.ModelSerializer):
@@ -10,10 +16,11 @@ class PurchaseItemSerializer(serializers.ModelSerializer):
 
 class PurchaseSerializer(serializers.ModelSerializer):
     items = PurchaseItemSerializer(many=True, required=False)
+    category_name = serializers.CharField(source='category.name', read_only=True)
 
     class Meta:
         model = Purchase
-        fields = ['id', 'date', 'category', 'description', 'amount', 'notes', 'created_at', 'items']
+        fields = ['id', 'date', 'category', 'category_name', 'description', 'amount', 'quantity_kg', 'unit_price', 'notes', 'created_at', 'items']
         read_only_fields = ['created_at']
 
     def create(self, validated_data):

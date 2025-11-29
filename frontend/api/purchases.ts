@@ -3,6 +3,8 @@ const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(base + path, {
     headers: { 'Content-Type': 'application/json' },
+    // include cookies for session-based auth (keeps CSRF/session working when frontend talks to backend)
+    credentials: 'include',
     ...init,
   })
   if (!res.ok) {
@@ -16,18 +18,16 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
 export type Purchase = {
   id?: number
   date: string
-  category: 'tools'|'inputs'|'other'
+  category: number | string
+  category_name?: string
   description: string
   amount: number
   notes?: string
 }
 
-export async function listPurchases(params?: { date__gte?: string; date__lte?: string; category?: string }) {
-  const qs = new URLSearchParams()
-  if (params?.date__gte) qs.append('date__gte', params.date__gte)
-  if (params?.date__lte) qs.append('date__lte', params.date__lte)
-  if (params?.category) qs.append('category', params.category)
-  return http<Purchase[]>(`/purchases/${qs.toString() ? `?${qs.toString()}` : ''}`)
+export async function listPurchases(params?: Record<string, any>, signal?: AbortSignal) {
+  const qs = params ? '?' + new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() : ''
+  return http<Purchase[]>(`/purchases/${qs}`, { signal })
 }
 
 export function createPurchase(payload: Purchase) {

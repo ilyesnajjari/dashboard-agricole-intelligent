@@ -1,13 +1,13 @@
 # Dashboard Agricole Intelligent
 
-Un tableau de bord complet pour la gestion d'une exploitation agricole avec API Django, frontend React/Next.js, base de données PostgreSQL, tâches asynchrones (Celery/Redis) et un module IA local pour la prévision des récoltes et des ventes.
+Un tableau de bord complet pour la gestion d'une exploitation agricole avec API Django, frontend React/Next.js, base de données SQLite et un module IA local pour la prévision des récoltes et des ventes.
 
 ## Fonctionnalités clés
 - KPI: recettes, dépenses, profit net, rendement (kg/m²), ventes marché
 - Graphiques: recettes vs dépenses, volumes, prix moyen/kg
-- Pages: Production (fraises/légumes), Marché (Velleron), Achats, Comptabilité, Produits
+- Pages: Production (fraises/légumes), Marché (Velleron), Achats, Produits
 - IA: prévisions (Prophet / scikit-learn), optimisation des stocks, alertes
-- Exports: CSV/Excel/PDF (à venir)
+- Exports: PDF (à venir)
 
 ## Structure du repo
 ```
@@ -25,16 +25,51 @@ frontend/           # Next.js dashboard
   components/
   api/              # wrappers Axios
 .env.example
-Dockerfile.backend
-Dockerfile.frontend
-docker-compose.yml
 ```
 
-## Démarrage rapide (dev)
-1. Créer un fichier `.env` à partir de `.env.example` et ajuster les valeurs
-2. Backend: `cd backend` puis `python manage.py runserver 0.0.0.0:8000`
-3. Frontend: `cd frontend` puis `npm install` et `npm run dev`
-4. Accéder aux apps: API sur http://localhost:8000 et Frontend sur http://localhost:3000
+## Installation et Utilisation
+
+### 1. Utilisation Quotidienne
+Pour lancer l'application (Backend + Frontend) :
+```bash
+./lancer_app.sh
+```
+L'application s'ouvrira automatiquement dans votre navigateur.
+
+### 2. Migration vers une autre machine
+Pour installer le projet sur un nouvel ordinateur (Mac/Linux) :
+
+**Ce qu'il faut copier :**
+*   📁 `backend/`
+*   📁 `frontend/`
+*   📄 `lancer_app.sh`
+*   📄 `setup_deployment.sh`
+*   📄 `.env`
+*   📄 `backend/db.sqlite3` (Optionnel : copiez-le uniquement si vous voulez conserver vos données)
+
+**Ce qu'il NE FAUT PAS copier :**
+*   `node_modules/`
+*   `.next/`
+*   `.venv/` ou `venv/`
+*   `__pycache__/`
+
+**Procédure d'installation sur la nouvelle machine :**
+1.  Ouvrez un terminal dans le dossier du projet.
+2.  Rendez les scripts exécutables :
+    ```bash
+    chmod +x setup_deployment.sh lancer_app.sh
+    ```
+3.  Lancez l'installation automatique :
+    ```bash
+    ./setup_deployment.sh
+    ```
+4.  Une fois terminé, lancez l'application avec `./lancer_app.sh`.
+
+### 3. Démarrage Manuel (Développement)
+Si vous préférez lancer les serveurs séparément :
+1.  **Backend** : `source .venv/bin/activate && cd backend && python manage.py runserver`
+2.  **Frontend** : `cd frontend && npm run dev`
+3.  Accès : API sur http://localhost:8000 et Frontend sur http://localhost:3000
 
 ## Roadmap
 - [ ] Modèles et endpoints de base (produits, récoltes, ventes, achats, compta)

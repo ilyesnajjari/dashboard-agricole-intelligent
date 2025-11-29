@@ -3,6 +3,7 @@ const base = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(base + path, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     ...init,
   })
   if (!res.ok) {
@@ -25,14 +26,14 @@ export type Harvest = {
   notes?: string
 }
 
-export async function listHarvests(params?: { product?: number; date__gte?: string; date__lte?: string; cultivation_type?: 'serre' | 'plein_champ' }) {
+export async function listHarvests(params?: { product?: number; date__gte?: string; date__lte?: string; cultivation_type?: 'serre' | 'plein_champ' }, signal?: AbortSignal) {
   const qs = new URLSearchParams()
   if (params?.product) qs.append('product', String(params.product))
   if (params?.date__gte) qs.append('date__gte', params.date__gte)
   if (params?.date__lte) qs.append('date__lte', params.date__lte)
   if (params?.cultivation_type) qs.append('cultivation_type', params.cultivation_type)
   const path = '/harvests/' + (qs.toString() ? `?${qs.toString()}` : '')
-  return http<Harvest[]>(path)
+  return http<Harvest[]>(path, { signal })
 }
 
 export async function createHarvest(payload: Harvest) {
@@ -44,7 +45,7 @@ export async function updateHarvest(id: number, payload: Partial<Harvest>) {
 }
 
 export async function deleteHarvest(id: number) {
-  const res = await fetch(base + `/harvests/${id}/`, { method: 'DELETE' })
+  const res = await fetch(base + `/harvests/${id}/`, { method: 'DELETE', credentials: 'include' })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(text || res.statusText)
@@ -57,12 +58,12 @@ export type HarvestAggregateRow = {
   avg_yield_kg_per_m2: number
 }
 
-export async function aggregateHarvests(params: { product: number; period: 'day'|'week'|'month'; date__gte?: string; date__lte?: string; cultivation_type?: 'serre'|'plein_champ' }) {
+export async function aggregateHarvests(params: { product: number; period: 'day' | 'week' | 'month'; date__gte?: string; date__lte?: string; cultivation_type?: 'serre' | 'plein_champ' }, signal?: AbortSignal) {
   const qs = new URLSearchParams()
   qs.append('product', String(params.product))
   qs.append('period', params.period)
   if (params.date__gte) qs.append('date__gte', params.date__gte)
   if (params.date__lte) qs.append('date__lte', params.date__lte)
   if (params.cultivation_type) qs.append('cultivation_type', params.cultivation_type)
-  return http<HarvestAggregateRow[]>(`/harvests/aggregate/?${qs.toString()}`)
+  return http<HarvestAggregateRow[]>(`/harvests/aggregate/?${qs.toString()}`, { signal })
 }

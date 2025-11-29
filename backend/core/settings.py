@@ -23,14 +23,15 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
     'corsheaders',
+    # 'django_crontab',  # Temporarily disabled - install with: pip install django-crontab
     # Local apps
     'apps.products',
     'apps.harvests',
     'apps.sales',
     'apps.purchases',
-    'apps.accounting',
-    'apps.ai_module',
     'apps.coreutils',
+    'apps.logbook',
+    'apps.payroll',
 ]
 
 MIDDLEWARE = [
@@ -98,6 +99,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
 ]
 
 LANGUAGE_CODE = 'fr-fr'
@@ -106,17 +110,16 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-]
-CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
 ]
@@ -148,3 +151,18 @@ if DEBUG:
 CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_TIMEZONE = TIME_ZONE
+
+# Email Configuration
+# For development, use console backend or configure SMTP
+EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@dashboard-agricole.com')
+
+# Cron Jobs - Weekly backup every Sunday at 9:00 AM
+CRONJOBS = [
+    ('0 9 * * 0', 'apps.coreutils.cron.weekly_backup_job', '>> /tmp/weekly_backup.log 2>&1'),
+]
