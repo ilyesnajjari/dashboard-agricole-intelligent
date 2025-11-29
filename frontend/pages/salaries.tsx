@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
     Box, Grid, Paper, Typography, TextField, Button,
-    Select, MenuItem, FormControl, InputLabel, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, CircularProgress
+    Select, MenuItem, FormControl, InputLabel, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, CircularProgress, Checkbox
 } from '@mui/material'
 import { DataGrid, GridColDef } from '@mui/x-data-grid'
 import { Delete, Edit, Save } from '@mui/icons-material'
@@ -22,6 +22,7 @@ interface WorkLog {
     hourly_rate: number
     total_cost: number
     notes: string
+    paid: boolean
 }
 
 export default function SalariesPage() {
@@ -45,6 +46,12 @@ export default function SalariesPage() {
     const [openEmpDialog, setOpenEmpDialog] = useState(false)
     const [deleteLogConfirm, setDeleteLogConfirm] = useState<number | null>(null)
     const [deleteEmpConfirm, setDeleteEmpConfirm] = useState<number | null>(null)
+    const [openPdfDialog, setOpenPdfDialog] = useState(false)
+    const [pdfForm, setPdfForm] = useState({
+        employee: '',
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear()
+    })
 
     const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
 
@@ -100,6 +107,47 @@ export default function SalariesPage() {
             })
             setDeleteEmpConfirm(null)
             loadData()
+        } catch (error) {
+            console.error(error)
+            setDeleteEmpConfirm(null)
+            setSubmitting(false)
+        }
+    }
+
+    const handleTogglePaid = async (id: number, currentPaid: boolean) => {
+        try {
+            await fetch(`${apiBase}/work-logs/${id}/`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ paid: !currentPaid })
+            })
+            setLogs(prev => prev.map(l => l.id === id ? { ...l, paid: !currentPaid } : l))
+        } catch (error) {
+            console.error(error)
+        }
+    }
+
+    const handleDownloadPdf = async () => {
+        if (!pdfForm.employee) return
+        setSubmitting(true)
+        try {
+            const res = await fetch(`${apiBase}/employees/${pdfForm.employee}/payslip/?year=${pdfForm.year}&month=${pdfForm.month}`, {
+                credentials: 'include'
+            })
+            if (res.ok) {
+                const blob = await res.blob()
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `Fiche_Paie_${pdfForm.month}_${pdfForm.year}.pdf`
+                document.body.appendChild(a)
+                a.click()
+                a.remove()
+                setOpenPdfDialog(false)
+            } else {
+                console.error('Error generating PDF')
+            }
         } catch (error) {
             console.error(error)
         } finally {
@@ -201,6 +249,18 @@ export default function SalariesPage() {
             }
         },
         {
+            field: 'paid',
+            headerName: 'Payé',
+            width: 100,
+            renderCell: (params) => (
+                <Checkbox
+                    checked={params.value || false}
+                    onChange={() => handleTogglePaid(params.row.id, params.row.paid)}
+                    color="primary"
+                />
+            )
+        },
+        {
             field: 'actions',
             headerName: 'Actions',
             flex: 1,
@@ -217,9 +277,14 @@ export default function SalariesPage() {
         <Box p={3}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h4">Gestion des Salariés</Typography>
-                <Button variant="outlined" onClick={() => setOpenEmpDialog(true)}>
-                    Gérer les Salariés
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Button variant="outlined" onClick={() => setOpenEmpDialog(true)}>
+                        Gérer les Salariés
+                    </Button>
+                    <Button variant="contained" color="secondary" onClick={() => setOpenPdfDialog(true)}>
+                        Générer Fiche de Paie
+                    </Button>
+                </Box>
             </Box>
 
             {/* Saisie des heures */}
@@ -407,6 +472,54 @@ export default function SalariesPage() {
                     <Button onClick={() => setDeleteEmpConfirm(null)} disabled={submitting}>Annuler</Button>
                     <Button onClick={handleDeleteEmployee} color="error" autoFocus disabled={submitting}>
                         {submitting ? <CircularProgress size={24} color="inherit" /> : 'Supprimer définitivement'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Dialog: Generate PDF */}
+            <Dialog open={openPdfDialog} onClose={() => setOpenPdfDialog(false)} maxWidth="xs" fullWidth>
+                <DialogTitle>Générer Fiche de Paie</DialogTitle>
+                <DialogContent>
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid item xs={12}>
+                            <FormControl fullWidth>
+                                <InputLabel>Salarié</InputLabel>
+                                <Select
+                                    value={pdfForm.employee}
+                                    label="Salarié"
+                                    onChange={(e) => setPdfForm({ ...pdfForm, employee: e.target.value })}
+                                >
+                                    {employees.map(e => (
+                                        <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={6}>
+                            <TextField
+                                label="Mois"
+                                type="number"
+                                fullWidth
+                                inputProps={{ min: 1, max: 12 }}
+                                value={pdfForm.month}
+                                onChange={(e) => setPdfForm({ ...pdfForm, month: Number(e.target.value) })}
+                            />
+                        </Grid>
+                        <Grid item xs={6}>
+                            <TextField
+                                label="Année"
+                                type="number"
+                                fullWidth
+                                value={pdfForm.year}
+                                onChange={(e) => setPdfForm({ ...pdfForm, year: Number(e.target.value) })}
+                            />
+                        </Grid>
+                    </Grid>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenPdfDialog(false)} disabled={submitting}>Annuler</Button>
+                    <Button onClick={handleDownloadPdf} variant="contained" disabled={submitting || !pdfForm.employee}>
+                        {submitting ? <CircularProgress size={24} color="inherit" /> : 'Télécharger PDF'}
                     </Button>
                 </DialogActions>
             </Dialog>

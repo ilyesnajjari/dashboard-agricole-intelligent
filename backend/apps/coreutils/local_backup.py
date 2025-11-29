@@ -39,10 +39,13 @@ def perform_local_backup():
         # 2. Export CSVs
         export_csvs(DB_PATH, session_dir)
         
-        # 3. Cleanup old
+        # 3. Generate all payslips for current year
+        generate_all_payslips()
+        
+        # 4. Cleanup old
         clean_old_backups(BACKUP_ROOT)
         
-        # 4. Update last_backup_at
+        # 5. Update last_backup_at
         try:
             from apps.coreutils.models import EmailPreference
             from django.utils import timezone
@@ -56,6 +59,105 @@ def perform_local_backup():
         return True, f"Sauvegarde effectuée dans: {session_dir}"
     except Exception as e:
         return False, str(e)
+
+def generate_all_payslips():
+    """Generate payslips for all employees for all months of current year"""
+    try:
+        from apps.payroll.models import Employee, WorkLog
+        from django.db.models import Sum
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+        from reportlab.lib import colors
+        from reportlab.platypus import Table, TableStyle
+        
+        current_year = datetime.datetime.now().year
+        desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+        
+        # Get all employees
+        employees = Employee.objects.all()
+        
+        for employee in employees:
+            employee_folder = employee.name.replace(' ', '_')
+            
+            # Generate payslip for each month (1-12)
+            for month in range(1, 13):
+                # Check if there are any work logs for this month
+                logs = WorkLog.objects.filter(
+                    employee=employee,
+                    date__year=current_year,
+                    date__month=month
+                ).order_by('date')
+                
+                if not logs.exists():
+                    continue  # Skip months with no work logs
+                
+                # Calculate totals
+                total_hours = logs.aggregate(Sum('hours'))['hours__sum'] or 0
+                total_cost = logs.aggregate(Sum('total_cost'))['total_cost__sum'] or 0
+                
+                # Create directory
+                payslips_dir = os.path.join(desktop_path, 'Backups_Dashboard_Agricole', 'Fiches_de_Paie', str(current_year), employee_folder)
+                os.makedirs(payslips_dir, exist_ok=True)
+                
+                # Create PDF filename
+                filename = f"Fiche_Paie_{month:02d}_{current_year}.pdf"
+                filepath = os.path.join(payslips_dir, filename)
+                
+                # Create PDF
+                p = canvas.Canvas(filepath, pagesize=A4)
+                width, height = A4
+                
+                # Header
+                p.setFont("Helvetica-Bold", 20)
+                p.drawString(50, height - 50, "Fiche Récapitulative / Facture")
+                
+                p.setFont("Helvetica", 12)
+                p.drawString(50, height - 80, f"Employé: {employee.name}")
+                p.drawString(50, height - 100, f"Période: {month:02d}/{current_year}")
+                p.drawString(50, height - 120, f"Date d'émission: {datetime.datetime.now().strftime('%d/%m/%Y')}")
+                
+                # Table Data
+                data = [['Date', 'Heures', 'Taux', 'Total (€)', 'Payé']]
+                for log in logs:
+                    data.append([
+                        log.date.strftime('%d/%m/%Y'),
+                        f"{log.hours}h",
+                        f"{log.hourly_rate} €/h",
+                        f"{log.total_cost} €",
+                        "Oui" if log.paid else "Non"
+                    ])
+                    
+                # Add Total Row
+                data.append(['', 'Total Heures', 'Total Coût', '', ''])
+                data.append(['', f"{total_hours}h", f"{total_cost} €", '', ''])
+                
+                # Table Style
+                table = Table(data, colWidths=[100, 80, 100, 100, 80])
+                style = TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ])
+                table.setStyle(style)
+                
+                # Draw Table
+                table.wrapOn(p, width, height)
+                table.drawOn(p, 50, height - 160 - table._height)
+                
+                # Footer
+                p.setFont("Helvetica-Oblique", 10)
+                p.drawString(50, 50, "Ce document est un récapitulatif généré automatiquement.")
+                
+                p.showPage()
+                p.save()
+    except Exception as e:
+        # Don't fail the whole backup if payslip generation fails
+        print(f"Error generating payslips: {e}")
+        pass
+
 
 def export_csvs(db_path, export_dir):
     conn = sqlite3.connect(db_path)

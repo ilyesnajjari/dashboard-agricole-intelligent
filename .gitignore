@@ -27,3 +27,5 @@ pnpm-debug.log*
 # VS Code
 .vscode/
 
+# Backup files
+backup/

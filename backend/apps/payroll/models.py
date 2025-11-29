@@ -16,6 +16,7 @@ class WorkLog(models.Model):
     hourly_rate = models.DecimalField(max_digits=6, decimal_places=2)
     total_cost = models.DecimalField(max_digits=10, decimal_places=2, editable=False)
     notes = models.TextField(blank=True)
+    paid = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         self.total_cost = float(self.hours) * float(self.hourly_rate)
