@@ -28,6 +28,7 @@ class Purchase(models.Model):
     quantity_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Quantité en kg (optionnel)")
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Prix unitaire par kg (optionnel)")
     notes = models.TextField(blank=True)
+    ignored = models.BooleanField(default=False, help_text="Ignorer cet achat dans les totaux")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

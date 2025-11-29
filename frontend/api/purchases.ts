@@ -23,6 +23,7 @@ export type Purchase = {
   description: string
   amount: number
   notes?: string
+  ignored?: boolean
 }
 
 export async function listPurchases(params?: Record<string, any>, signal?: AbortSignal) {

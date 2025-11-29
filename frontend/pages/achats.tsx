@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from 'react'
 import { DataGrid, GridColDef, GridRowModel } from '@mui/x-data-grid'
 import { Box, Button, Grid, MenuItem, Select, Snackbar, Alert, TextField, Typography, Paper, Skeleton, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, FormControl, InputLabel, CircularProgress } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip } from 'recharts'
 import { createPurchase, deletePurchase, listPurchases, updatePurchase, type Purchase } from '../api/purchases'
 
@@ -150,6 +152,17 @@ export default function AchatsPage() {
     return () => controller.abort()
   }, [])
 
+  const handleToggleIgnored = async (id: number, currentIgnored: boolean) => {
+    try {
+      await updatePurchase(id, { ignored: !currentIgnored })
+      setItems(prev => prev.map(item => item.id === id ? { ...item, ignored: !currentIgnored } : item))
+      setToast({ open: true, msg: currentIgnored ? 'Achat réactivé' : 'Achat ignoré', severity: 'info' })
+    } catch (e: any) {
+      setToast({ open: true, msg: 'Erreur: ' + (e?.message ?? ''), severity: 'error' })
+    }
+  }
+
+
   const columns: GridColDef[] = [
     { field: 'date', headerName: 'Date', flex: 1 },
     {
@@ -202,6 +215,20 @@ export default function AchatsPage() {
         const val = (params && typeof params === 'object' && 'value' in params) ? params.value : params
         return (val !== undefined && val !== null && val !== '') ? `${Number(val).toFixed(2)} €` : ''
       }
+    },
+    {
+      field: 'ignored',
+      headerName: 'Ignorer',
+      width: 100,
+      sortable: false,
+      renderCell: (params) => (
+        <IconButton
+          onClick={() => handleToggleIgnored(params.row.id, params.row.ignored)}
+          color={params.row.ignored ? 'default' : 'primary'}
+        >
+          {params.row.ignored ? <VisibilityOffIcon /> : <VisibilityIcon />}
+        </IconButton>
+      )
     },
     {
       field: 'actions', headerName: 'Actions', flex: 1, sortable: false, renderCell: (p) => (
@@ -392,12 +419,20 @@ export default function AchatsPage() {
                     initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
                     disableRowSelectionOnClick
                     processRowUpdate={processRowUpdate}
+                    getRowClassName={(params) => params.row.ignored ? 'ignored-row' : ''}
+                    sx={{
+                      '& .ignored-row': {
+                        bgcolor: 'action.disabledBackground',
+                        opacity: 0.6,
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                        }
+                      }
+                    }}
                   />
                   <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1, display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
                     <Typography variant="h6">
-                      Total (Global): <strong>{items.filter(r => !category || String(r.category) === String(category)).reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)} €</strong>
-                      &nbsp; | &nbsp;
-                      Total ({new Date().getFullYear()}): <strong>{items.filter(r => (!category || String(r.category) === String(category)) && new Date(r.date).getFullYear() === new Date().getFullYear()).reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)} €</strong>
+                      Total (Global): <strong>{items.filter(r => (!category || String(r.category) === String(category)) && !r.ignored).reduce((sum, item) => sum + Number(item.amount || 0), 0).toFixed(2)} €</strong>
                     </Typography>
                   </Box>
                 </>
