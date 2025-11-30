@@ -202,9 +202,9 @@ def clean_old_backups(backup_root):
         
         items.sort(key=os.path.getmtime)
         
-        # Keep last 5
-        if len(items) > 5:
-            for folder in items[:-5]:
+        # Keep only the last 1 backup
+        if len(items) > 1:
+            for folder in items[:-1]:
                 shutil.rmtree(folder)
     except Exception:
         pass
