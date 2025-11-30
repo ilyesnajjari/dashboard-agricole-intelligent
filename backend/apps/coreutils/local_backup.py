@@ -11,10 +11,9 @@ def perform_local_backup():
     BASE_DIR = settings.BASE_DIR
     DB_PATH = os.path.join(BASE_DIR, 'db.sqlite3')
     
-    # Save to Desktop
-    # We try to find the user's desktop. In a server env this might be tricky, 
-    # but for this local user setup (Mac), expanding ~ works.
-    BACKUP_ROOT = os.path.expanduser('~/Desktop/Backups_Dashboard_Agricole')
+    # Save to project root
+    PROJECT_ROOT = os.path.dirname(BASE_DIR)
+    BACKUP_ROOT = os.path.join(PROJECT_ROOT, 'Backups_Dashboard_Agricole')
     
     if not os.path.exists(BACKUP_ROOT):
         try:
@@ -71,7 +70,10 @@ def generate_all_payslips():
         from reportlab.platypus import Table, TableStyle
         
         current_year = datetime.datetime.now().year
-        desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+        
+        # Get project root (parent of backend directory)
+        from django.conf import settings
+        project_root = os.path.dirname(settings.BASE_DIR)
         
         # Get all employees
         employees = Employee.objects.all()
@@ -96,7 +98,7 @@ def generate_all_payslips():
                 total_cost = logs.aggregate(Sum('total_cost'))['total_cost__sum'] or 0
                 
                 # Create directory
-                payslips_dir = os.path.join(desktop_path, 'Backups_Dashboard_Agricole', 'Fiches_de_Paie', str(current_year), employee_folder)
+                payslips_dir = os.path.join(project_root, 'Backups_Dashboard_Agricole', 'Fiches_de_Paie', str(current_year), employee_folder)
                 os.makedirs(payslips_dir, exist_ok=True)
                 
                 # Create PDF filename

@@ -14,8 +14,8 @@ BACKEND_DIR = os.path.dirname(CURRENT_SCRIPT_DIR) # backend/
 PROJECT_ROOT = os.path.dirname(BACKEND_DIR) # root/
 
 DB_PATH = os.path.join(BACKEND_DIR, 'db.sqlite3')
-# Save to Desktop for easy local access
-BACKUP_DIR = os.path.expanduser('~/Desktop/Backups_Dashboard_Agricole')
+# Save to project root
+BACKUP_DIR = os.path.join(PROJECT_ROOT, 'Backups_Dashboard_Agricole')
 
 def export_to_csv(db_path, export_dir):
     """Exports key tables to CSV files for human readability."""

@@ -5,7 +5,10 @@ import sys
 def main():
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
     # Ensure backup directory exists on startup
-    backup_dir = os.path.expanduser('~/Desktop/Backups_Dashboard_Agricole')
+    # Get the project root (parent of backend directory)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+    backup_dir = os.path.join(project_root, 'Backups_Dashboard_Agricole')
     if not os.path.exists(backup_dir):
         try:
             os.makedirs(backup_dir)

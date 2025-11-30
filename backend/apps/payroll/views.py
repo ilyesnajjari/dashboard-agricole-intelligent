@@ -41,10 +41,10 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         total_hours = logs.aggregate(Sum('hours'))['hours__sum'] or 0
         total_cost = logs.aggregate(Sum('total_cost'))['total_cost__sum'] or 0
         
-        # Create payslips directory on Desktop in Backups_Dashboard_Agricole
-        desktop_path = os.path.join(os.path.expanduser('~'), 'Desktop')
+        # Create payslips directory in project root
+        project_root = os.path.dirname(settings.BASE_DIR)
         employee_folder = employee.name.replace(' ', '_')
-        payslips_dir = os.path.join(desktop_path, 'Backups_Dashboard_Agricole', 'Fiches_de_Paie', str(year), employee_folder)
+        payslips_dir = os.path.join(project_root, 'Backups_Dashboard_Agricole', 'Fiches_de_Paie', str(year), employee_folder)
         os.makedirs(payslips_dir, exist_ok=True)
         
         # Create PDF filename

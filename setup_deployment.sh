@@ -7,8 +7,9 @@ echo "==================================================="
 echo "   INITIALISATION DASHBOARD AGRICOLE INTELLIGENT   "
 echo "==================================================="
 
-# 1. Création du dossier de sauvegarde sur le Bureau
-BACKUP_DIR="$HOME/Desktop/Backups_Dashboard_Agricole"
+# 1. Création du dossier de sauvegarde dans la racine du projet
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_DIR="$SCRIPT_DIR/Backups_Dashboard_Agricole"
 echo "[1/3] Vérification du dossier de sauvegarde..."
 if [ ! -d "$BACKUP_DIR" ]; then
     mkdir -p "$BACKUP_DIR"
