@@ -1,24 +1,58 @@
 import { useState, useEffect, useRef } from 'react'
 import { Box, Typography, Card, CardContent, CardMedia, IconButton, Fab, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip, Stack, CircularProgress } from '@mui/material'
-import { Add, Delete, CalendarToday, LocalOffer } from '@mui/icons-material'
+import { Add, Delete, CalendarToday, LocalOffer, Edit } from '@mui/icons-material'
+
+interface LogCategory {
+    id: number
+    name: string
+    color: string
+}
 
 interface LogEntry {
     id: number
     date: string
-    category: 'observation' | 'intervention' | 'harvest' | 'problem' | 'note'
+    category: number // ID of the category
+    category_details: LogCategory
     content: string
     tags: string
 }
 
 export default function Logbook() {
     const [entries, setEntries] = useState<LogEntry[]>([])
+    const [categories, setCategories] = useState<LogCategory[]>([])
     const [open, setOpen] = useState(false)
+    const [editOpen, setEditOpen] = useState(false)
+    const [categoryOpen, setCategoryOpen] = useState(false)
     const [submitting, setSubmitting] = useState(false)
-    const [newEntry, setNewEntry] = useState({ content: '', category: 'note', tags: '' })
+    const [newEntry, setNewEntry] = useState({ content: '', category: '', tags: '' })
+    const [newCategory, setNewCategory] = useState({ name: '', color: '#1976d2' })
+    const [editEntry, setEditEntry] = useState<LogEntry | null>(null)
+    const [filterCategory, setFilterCategory] = useState<string>('all')
+    const [filterTag, setFilterTag] = useState<string>('all')
+
+    // Extract unique tags from entries
+    const availableTags = Array.from(new Set(
+        entries.flatMap(entry => entry.tags ? entry.tags.split(',').map(tag => tag.trim()) : [])
+    )).sort()
 
     useEffect(() => {
         fetchEntries()
+        fetchCategories()
     }, [])
+
+    const fetchCategories = async () => {
+        try {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+            const res = await fetch(`${apiBase}/log-categories/`)
+            const data = await res.json()
+            setCategories(data)
+            if (data.length > 0 && !newEntry.category) {
+                setNewEntry(prev => ({ ...prev, category: data[0].id.toString() }))
+            }
+        } catch (error) {
+            console.error('Error fetching categories:', error)
+        }
+    }
 
     const fetchEntries = async () => {
         try {
@@ -28,6 +62,46 @@ export default function Logbook() {
             setEntries(data)
         } catch (error) {
             console.error('Error fetching logbook:', error)
+        }
+    }
+
+    const handleCreateCategory = async () => {
+        if (!newCategory.name) return
+        setSubmitting(true)
+        try {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+            // On envoie une couleur par défaut car le backend l'attend peut-être encore, mais on ne l'utilise plus visuellement
+            const payload = { name: newCategory.name, color: '#000000' }
+            const res = await fetch(`${apiBase}/log-categories/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+            if (res.ok) {
+                setNewCategory({ name: '', color: '#1976d2' })
+                fetchCategories()
+            }
+        } catch (error) {
+            console.error('Error creating category:', error)
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const handleDeleteCategory = async (id: number) => {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ? Les entrées associées perdront leur catégorie.')) return
+        try {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+            const res = await fetch(`${apiBase}/log-categories/${id}/`, { method: 'DELETE' })
+            if (res.ok) {
+                fetchCategories()
+                // Si la catégorie supprimée était sélectionnée dans le filtre, on remet à 'all'
+                if (filterCategory === id.toString()) {
+                    setFilterCategory('all')
+                }
+            }
+        } catch (error) {
+            console.error('Error deleting category:', error)
         }
     }
 
@@ -57,6 +131,42 @@ export default function Logbook() {
         }
     }
 
+    const handleEdit = (entry: LogEntry) => {
+        setEditEntry(entry)
+        setEditOpen(true)
+    }
+
+    const handleUpdate = async () => {
+        if (!editEntry) return
+
+        const formData = new FormData()
+        formData.append('content', editEntry.content)
+        formData.append('category', editEntry.category.toString())
+        formData.append('tags', editEntry.tags)
+        formData.append('date', editEntry.date)
+
+        setSubmitting(true)
+        try {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+            const res = await fetch(`${apiBase}/logbook/${editEntry.id}/`, {
+                method: 'PUT',
+                body: formData,
+                credentials: 'include',
+            })
+            if (res.ok) {
+                setEditOpen(false)
+                setEditEntry(null)
+                fetchEntries()
+            } else {
+                console.error('Failed to update', res.statusText)
+            }
+        } catch (error) {
+            console.error('Error updating entry:', error)
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
 
 
     const handleSubmit = async () => {
@@ -75,7 +185,7 @@ export default function Logbook() {
                 credentials: 'include',
             })
             setOpen(false)
-            setNewEntry({ content: '', category: 'note', tags: '' })
+            setNewEntry(prev => ({ ...prev, content: '', tags: '' }))
             fetchEntries()
         } catch (error) {
             console.error('Error saving entry:', error)
@@ -90,65 +200,122 @@ export default function Logbook() {
                 <Typography variant="h4" fontWeight={700}>
                     Journal de Bord
                 </Typography>
-                <Fab color="primary" onClick={() => setOpen(true)}>
-                    <Add />
-                </Fab>
+                <Stack direction="row" spacing={2}>
+                    <Button variant="outlined" onClick={() => setCategoryOpen(true)}>
+                        Gérer les catégories
+                    </Button>
+                    <Fab color="primary" onClick={() => setOpen(true)}>
+                        <Add />
+                    </Fab>
+                </Stack>
+            </Box>
+
+            <Box sx={{ mb: 3, display: 'flex', gap: 2 }}>
+                <TextField
+                    select
+                    label="Filtrer par catégorie"
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    SelectProps={{ native: true }}
+                    size="small"
+                    sx={{ minWidth: 200 }}
+                >
+                    <option value="all">Toutes les catégories</option>
+                    {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                </TextField>
+
+                <TextField
+                    select
+                    label="Filtrer par tag"
+                    value={filterTag}
+                    onChange={(e) => setFilterTag(e.target.value)}
+                    SelectProps={{ native: true }}
+                    size="small"
+                    sx={{ minWidth: 200 }}
+                >
+                    <option value="all">Tous les tags</option>
+                    {availableTags.map(tag => (
+                        <option key={tag} value={tag}>{tag}</option>
+                    ))}
+                </TextField>
+
+                {(filterCategory !== 'all' || filterTag !== 'all') && (
+                    <Button
+                        variant="text"
+                        onClick={() => {
+                            setFilterCategory('all')
+                            setFilterTag('all')
+                        }}
+                    >
+                        Réinitialiser
+                    </Button>
+                )}
             </Box>
 
             <Stack spacing={3}>
-                {entries.map((entry) => (
-                    <Card key={entry.id} sx={{ position: 'relative', overflow: 'visible' }}>
-                        <Box
-                            sx={{
-                                position: 'absolute',
-                                left: -16,
-                                top: 20,
-                                width: 4,
-                                height: '100%',
-                                bgcolor: 'primary.main',
-                                borderRadius: 2,
-                            }}
-                        />
-                        <IconButton
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                handleDelete(entry.id)
-                            }}
-                            sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}
-                            size="small"
-                            color="error"
-                        >
-                            <Delete />
-                        </IconButton>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, color: 'text.secondary' }}>
-                                <CalendarToday fontSize="small" />
-                                <Typography variant="caption">
-                                    {new Date(entry.date).toLocaleString('fr-FR')}
-                                </Typography>
-                                <Chip label={entry.category} size="small" variant="outlined" sx={{ ml: 'auto', mr: 4 }} />
+                {entries
+                    .filter(entry => {
+                        const matchCategory = filterCategory === 'all' || (entry.category_details && entry.category_details.id.toString() === filterCategory)
+                        const matchTag = filterTag === 'all' || (entry.tags && entry.tags.split(',').map(t => t.trim()).includes(filterTag))
+                        return matchCategory && matchTag
+                    })
+                    .map((entry) => (
+                        <Card key={entry.id} sx={{ position: 'relative', overflow: 'visible' }}>
+                            <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 1 }}>
+                                <IconButton
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleEdit(entry)
+                                    }}
+                                    size="small"
+                                    color="primary"
+                                >
+                                    <Edit />
+                                </IconButton>
+                                <IconButton
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDelete(entry.id)
+                                    }}
+                                    size="small"
+                                    color="error"
+                                >
+                                    <Delete />
+                                </IconButton>
                             </Box>
-
-                            <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                                {entry.content}
-                            </Typography>
-
-
-
-
-
-                            {entry.tags && (
-                                <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                                    <LocalOffer fontSize="small" color="action" />
-                                    {entry.tags.split(',').map(tag => (
-                                        <Chip key={tag} label={tag.trim()} size="small" />
-                                    ))}
+                            <CardContent>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, color: 'text.secondary' }}>
+                                    <CalendarToday fontSize="small" />
+                                    <Typography variant="caption">
+                                        {new Date(entry.date).toLocaleString('fr-FR')}
+                                    </Typography>
+                                    <Chip
+                                        label={entry.category_details?.name || 'Sans catégorie'}
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{ ml: 'auto', mr: 10 }}
+                                    />
                                 </Box>
-                            )}
-                        </CardContent>
-                    </Card>
-                ))}
+
+                                <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                                    {entry.content}
+                                </Typography>
+
+                                {entry.tags && (
+                                    <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                                        <LocalOffer fontSize="small" color="action" />
+                                        {entry.tags.split(',').map(tag => (
+                                            <Chip key={tag} label={tag.trim()} size="small" />
+                                        ))}
+                                    </Box>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ))}
             </Stack>
 
             <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
@@ -163,11 +330,10 @@ export default function Logbook() {
                             SelectProps={{ native: true }}
                             fullWidth
                         >
-                            <option value="observation">Observation</option>
-                            <option value="intervention">Intervention</option>
-                            <option value="harvest">Récolte</option>
-                            <option value="problem">Problème</option>
-                            <option value="note">Note</option>
+                            <option value="" disabled>Sélectionner une catégorie</option>
+                            {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
                         </TextField>
 
                         <TextField
@@ -178,8 +344,6 @@ export default function Logbook() {
                             onChange={(e) => setNewEntry({ ...newEntry, content: e.target.value })}
                             fullWidth
                         />
-
-
 
                         <TextField
                             label="Tags (séparés par des virgules)"
@@ -194,6 +358,91 @@ export default function Logbook() {
                     <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
                         {submitting ? <CircularProgress size={24} color="inherit" /> : 'Enregistrer'}
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="sm">
+                <DialogTitle>Modifier l'Entrée</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={3} sx={{ mt: 1 }}>
+                        <TextField
+                            select
+                            label="Catégorie"
+                            value={editEntry?.category || ''}
+                            onChange={(e) => setEditEntry(editEntry ? { ...editEntry, category: parseInt(e.target.value) } : null)}
+                            SelectProps={{ native: true }}
+                            fullWidth
+                        >
+                            {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                        </TextField>
+
+                        <TextField
+                            label="Description"
+                            multiline
+                            rows={4}
+                            value={editEntry?.content || ''}
+                            onChange={(e) => setEditEntry(editEntry ? { ...editEntry, content: e.target.value } : null)}
+                            fullWidth
+                        />
+
+                        <TextField
+                            label="Tags (séparés par des virgules)"
+                            value={editEntry?.tags || ''}
+                            onChange={(e) => setEditEntry(editEntry ? { ...editEntry, tags: e.target.value } : null)}
+                            fullWidth
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setEditOpen(false)} disabled={submitting}>Annuler</Button>
+                    <Button onClick={handleUpdate} variant="contained" disabled={submitting}>
+                        {submitting ? <CircularProgress size={24} color="inherit" /> : 'Mettre à jour'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={categoryOpen} onClose={() => setCategoryOpen(false)} fullWidth maxWidth="xs">
+                <DialogTitle>Gérer les catégories</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        <Typography variant="subtitle2" color="text.secondary">Catégories existantes :</Typography>
+                        <Stack spacing={1}>
+                            {categories.map(cat => (
+                                <Box key={cat.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
+                                    <Typography>{cat.name}</Typography>
+                                    <IconButton size="small" color="error" onClick={() => handleDeleteCategory(cat.id)}>
+                                        <Delete fontSize="small" />
+                                    </IconButton>
+                                </Box>
+                            ))}
+                            {categories.length === 0 && <Typography variant="body2" color="text.secondary">Aucune catégorie</Typography>}
+                        </Stack>
+
+                        <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Ajouter une catégorie :</Typography>
+                            <Stack direction="row" spacing={1}>
+                                <TextField
+                                    label="Nom"
+                                    value={newCategory.name}
+                                    onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                                    fullWidth
+                                    size="small"
+                                />
+                                <Button
+                                    onClick={handleCreateCategory}
+                                    variant="contained"
+                                    disabled={submitting || !newCategory.name}
+                                >
+                                    Ajouter
+                                </Button>
+                            </Stack>
+                        </Box>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setCategoryOpen(false)}>Fermer</Button>
                 </DialogActions>
             </Dialog>
 

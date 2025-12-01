@@ -1,16 +1,22 @@
 from django.db import models
 
-class LogEntry(models.Model):
-    CATEGORY_CHOICES = (
-        ('observation', 'Observation'),
-        ('intervention', 'Intervention'),
-        ('harvest', 'Récolte'),
-        ('problem', 'Problème'),
-        ('note', 'Note'),
-    )
+class LogCategory(models.Model):
+    """Custom categories for log entries"""
+    name = models.CharField(max_length=50, unique=True)
+    color = models.CharField(max_length=7, default='#1976d2', help_text="Hex color code")
+    created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Log Categories'
+
+    def __str__(self):
+        return self.name
+
+class LogEntry(models.Model):
     date = models.DateTimeField()
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='note')
+    category = models.ForeignKey(LogCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='entries')
+
     content = models.TextField(blank=True)
     photo = models.ImageField(upload_to='logbook/photos/', null=True, blank=True)
     tags = models.CharField(max_length=200, blank=True, help_text="Comma separated tags")

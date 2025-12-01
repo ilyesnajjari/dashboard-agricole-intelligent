@@ -360,7 +360,7 @@ def impersonate_users(request):
     ]
     return JsonResponse({'users': users})
 
-from apps.logbook.views import LogEntryViewSet
+from apps.logbook.views import LogEntryViewSet, LogCategoryViewSet
 from apps.sales.views import MarketViewSet
 from apps.coreutils.views import EmailPreferenceViewSet
 from apps.payroll.views import EmployeeViewSet, WorkLogViewSet
@@ -375,6 +375,7 @@ router.register(r'purchase-items', PurchaseItemViewSet, basename='purchase-item'
 router.register(r'purchases', PurchaseViewSet, basename='purchase')
 router.register(r'purchase-categories', PurchaseCategoryViewSet, basename='purchase-category')
 router.register(r'logbook', LogEntryViewSet, basename='logbook')
+router.register(r'log-categories', LogCategoryViewSet, basename='log-category')
 router.register(r'email-preferences', EmailPreferenceViewSet, basename='email-preference')
 router.register(r'employees', EmployeeViewSet, basename='employee')
 router.register(r'work-logs', WorkLogViewSet, basename='work-log')
