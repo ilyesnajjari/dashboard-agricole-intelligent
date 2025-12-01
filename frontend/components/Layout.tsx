@@ -59,6 +59,7 @@ export default function Layout({ children, user }: Props) {
             { label: 'Achats', href: '/achats' },
             { label: 'Salariés', href: '/salaries' },
             { label: 'Journal', href: '/journal' },
+            { label: 'Planning', href: '/planning' },
           ].map((link) => {
             const isActive = link.href === '/' ? router.pathname === '/' : router.pathname?.startsWith(link.href)
             return (

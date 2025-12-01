@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'apps.coreutils',
     'apps.logbook',
     'apps.payroll',
+    'apps.planning',
 ]
 
 MIDDLEWARE = [
