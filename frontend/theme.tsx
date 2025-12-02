@@ -1,5 +1,6 @@
 import React from 'react'
 import { createTheme, PaletteMode, ThemeOptions, alpha } from '@mui/material/styles'
+import type { } from '@mui/x-data-grid/themeAugmentation'
 
 export const ColorModeContext = React.createContext<{ mode: PaletteMode; toggle: () => void }>({ mode: 'light', toggle: () => { } })
 
