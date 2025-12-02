@@ -365,6 +365,7 @@ from apps.sales.views import MarketViewSet
 from apps.coreutils.views import EmailPreferenceViewSet
 from apps.payroll.views import EmployeeViewSet, WorkLogViewSet
 from apps.planning.views import CropCalendarViewSet
+from apps.inventory.views import InventoryCategoryViewSet, InventoryItemViewSet
 
 router = DefaultRouter()
 router.register(r'products', ProductViewSet, basename='product')
@@ -381,6 +382,8 @@ router.register(r'email-preferences', EmailPreferenceViewSet, basename='email-pr
 router.register(r'employees', EmployeeViewSet, basename='employee')
 router.register(r'work-logs', WorkLogViewSet, basename='work-log')
 router.register(r'crop-calendars', CropCalendarViewSet, basename='crop-calendar')
+router.register(r'inventory-categories', InventoryCategoryViewSet, basename='inventory-category')
+router.register(r'inventory-items', InventoryItemViewSet, basename='inventory-item')
 
 urlpatterns = [
     # expose current user info for frontend (session-based auth)

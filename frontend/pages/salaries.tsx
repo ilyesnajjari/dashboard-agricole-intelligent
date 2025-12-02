@@ -364,7 +364,7 @@ export default function SalariesPage() {
                                     <Tooltip formatter={(val: number) => `${val.toFixed(2)} €`} />
                                     <Legend />
                                     {employees.map((emp, index) => (
-                                        <Bar key={emp.id} dataKey={emp.name} stackId="a" fill={getEmployeeColor(index)} />
+                                        <Bar key={emp.id} dataKey={emp.name} fill={getEmployeeColor(index)} />
                                     ))}
                                 </BarChart>
                             </ResponsiveContainer>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, TextField, MenuItem, Tooltip } from '@mui/material'
-import { Add, Edit, Info } from '@mui/icons-material'
+import { Add, Edit, Info, Delete as DeleteIcon } from '@mui/icons-material'
 
 interface CropEvent {
     id: number
@@ -106,6 +106,26 @@ export default function Planning() {
         }
     }
 
+    const handleDeleteCrop = async (cropName: string) => {
+        if (!confirm(`Supprimer toutes les actions pour "${cropName}" ?`)) return
+        setSubmitting(true)
+        try {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+            // Delete all events for this crop
+            const cropEvents = events.filter(e => e.crop_name === cropName)
+            await Promise.all(
+                cropEvents.map(event =>
+                    fetch(`${apiBase}/crop-calendars/${event.id}/`, { method: 'DELETE' })
+                )
+            )
+            fetchEvents()
+        } catch (error) {
+            console.error('Error deleting crop:', error)
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     const getEventForCell = (crop: string, monthIndex: number) => {
         // Month index is 0-11, db is 1-12
         return events.find(e => e.crop_name === crop && e.month === monthIndex + 1)
@@ -115,7 +135,7 @@ export default function Planning() {
         <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
                 <Typography variant="h4" fontWeight={700}>
-                    🗓️ Planificateur Annuel 2026
+                    Planning Annuel
                 </Typography>
                 <Button variant="contained" startIcon={<Add />} onClick={() => {
                     setEditEvent({ month: 1, action_type: 'plant', note: '' })
@@ -129,18 +149,31 @@ export default function Planning() {
             <TableContainer component={Paper} sx={{ boxShadow: 3, borderRadius: 2 }}>
                 <Table size="small">
                     <TableHead>
-                        <TableRow sx={{ bgcolor: 'grey.100' }}>
-                            <TableCell sx={{ fontWeight: 'bold', width: 200 }}>Culture</TableCell>
+                        <TableRow sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100' }}>
+                            <TableCell sx={{ fontWeight: 'bold', width: 200, color: 'text.primary' }}>Culture</TableCell>
                             {MONTHS.map(m => (
-                                <TableCell key={m} align="center" sx={{ fontWeight: 'bold' }}>{m}</TableCell>
+                                <TableCell key={m} align="center" sx={{ fontWeight: 'bold', color: 'text.primary' }}>{m}</TableCell>
                             ))}
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {crops.map(crop => (
                             <TableRow key={crop} hover>
-                                <TableCell component="th" scope="row" sx={{ fontWeight: 500 }}>
-                                    {crop}
+                                <TableCell component="th" scope="row" sx={{ fontWeight: 500, color: 'text.primary' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span>{crop}</span>
+                                        <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleDeleteCrop(crop)
+                                            }}
+                                            sx={{ ml: 1 }}
+                                        >
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </Box>
                                 </TableCell>
                                 {MONTHS.map((_, monthIndex) => {
                                     const event = getEventForCell(crop, monthIndex)

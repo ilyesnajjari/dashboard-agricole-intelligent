@@ -60,6 +60,7 @@ export default function Layout({ children, user }: Props) {
             { label: 'Salariés', href: '/salaries' },
             { label: 'Journal', href: '/journal' },
             { label: 'Planning', href: '/planning' },
+            { label: 'Inventaire', href: '/inventaire' },
           ].map((link) => {
             const isActive = link.href === '/' ? router.pathname === '/' : router.pathname?.startsWith(link.href)
             return (
