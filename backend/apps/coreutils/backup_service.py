@@ -32,8 +32,18 @@ def create_weekly_backup():
             db_backup_path = os.path.join(backup_folder, 'db.sqlite3')
             shutil.copy2(db_path, db_backup_path)
             logger.info(f"Database backed up to {db_backup_path}")
+
+        # 2. Full JSON Dump
+        try:
+            from django.core.management import call_command
+            json_dump_path = os.path.join(backup_folder, f"full_dump_{timestamp}.json")
+            with open(json_dump_path, 'w', encoding='utf-8') as f:
+                call_command('dumpdata', stdout=f)
+            logger.info(f"Full JSON dump created at {json_dump_path}")
+        except Exception as e:
+            logger.error(f"JSON dump failed: {e}")
         
-        # 2. Export Harvests to CSV
+        # 3. Export Harvests to CSV
         harvests_csv = os.path.join(backup_folder, 'recoltes.csv')
         with open(harvests_csv, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -51,7 +61,7 @@ def create_weekly_backup():
                 ])
         logger.info(f"Harvests exported to {harvests_csv}")
         
-        # 3. Export Sales to CSV
+        # 4. Export Sales to CSV
         sales_csv = os.path.join(backup_folder, 'ventes.csv')
         with open(sales_csv, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -71,7 +81,7 @@ def create_weekly_backup():
                 ])
         logger.info(f"Sales exported to {sales_csv}")
         
-        # 4. Export Purchases to CSV
+        # 5. Export Purchases to CSV
         purchases_csv = os.path.join(backup_folder, 'achats.csv')
         with open(purchases_csv, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
@@ -89,21 +99,59 @@ def create_weekly_backup():
                     p.notes
                 ])
         logger.info(f"Purchases exported to {purchases_csv}")
+
+        # 6. Export Tasks to CSV
+        try:
+            from apps.tasks.models import DailyTask
+            tasks_csv = os.path.join(backup_folder, 'taches_quotidiennes.csv')
+            with open(tasks_csv, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(['ID', 'Titre', 'Statut', 'Créé le', 'Terminé le'])
+                for t in DailyTask.objects.all():
+                    writer.writerow([
+                        t.id,
+                        t.title,
+                        'Terminé' if t.completed else 'À faire',
+                        t.created_at,
+                        t.completed_at
+                    ])
+        except Exception as e:
+            logger.error(f"Tasks export failed: {e}")
+
+        # 7. Export Planning to CSV
+        try:
+            from apps.planning.models import CropCalendar, TreatmentCalendar
+            
+            # Crop Calendar
+            crop_csv = os.path.join(backup_folder, 'planning_cultural.csv')
+            with open(crop_csv, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(['ID', 'Culture', 'Mois', 'Action', 'Note'])
+                for c in CropCalendar.objects.all():
+                    writer.writerow([c.id, c.crop_name, c.month, c.action_type, c.note])
+            
+            # Treatment Calendar
+            treat_csv = os.path.join(backup_folder, 'planning_phyto.csv')
+            with open(treat_csv, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(['ID', 'Culture', 'Mois', 'Type', 'Produit', 'Dosage', 'Note'])
+                for t in TreatmentCalendar.objects.all():
+                    writer.writerow([t.id, t.crop_name, t.month, t.treatment_type, t.product_name, t.dosage, t.note])
+        except Exception as e:
+            logger.error(f"Planning export failed: {e}")
         
-        # 5. Create a summary file
+        # 8. Create a summary file
         summary_file = os.path.join(backup_folder, 'README.txt')
         with open(summary_file, 'w', encoding='utf-8') as f:
             f.write(f"Sauvegarde automatique - Dashboard Agricole\n")
             f.write(f"Date: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n\n")
             f.write(f"Contenu de cette sauvegarde:\n")
-            f.write(f"- db.sqlite3: Base de données complète\n")
-            f.write(f"- recoltes.csv: Export des récoltes\n")
-            f.write(f"- ventes.csv: Export des ventes\n")
-            f.write(f"- achats.csv: Export des achats\n\n")
-            f.write(f"Pour restaurer la base de données:\n")
-            f.write(f"1. Arrêtez le serveur Django\n")
-            f.write(f"2. Remplacez backend/db.sqlite3 par ce fichier\n")
-            f.write(f"3. Redémarrez le serveur\n")
+            f.write(f"- db.sqlite3: Base de données binaire (SQLite)\n")
+            f.write(f"- full_dump.json: Export complet de la base (JSON)\n")
+            f.write(f"- *.csv: Exports lisibles (Excel)\n\n")
+            f.write(f"Pour restaurer:\n")
+            f.write(f"Option 1 (Simple): Remplacer backend/db.sqlite3 par le fichier de ce dossier\n")
+            f.write(f"Option 2 (Avancée): Utiliser 'python manage.py loaddata full_dump.json'\n")
         
         logger.info(f"Backup completed successfully in {backup_folder}")
         

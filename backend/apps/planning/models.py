@@ -24,3 +24,35 @@ class CropCalendar(models.Model):
 
     def __str__(self):
         return f"{self.crop_name} - {self.get_month_display()} - {self.action_type}"
+
+
+class TreatmentCalendar(models.Model):
+    TREATMENT_CHOICES = (
+        ('fungicide', 'Fongicide'),
+        ('insecticide', 'Insecticide'),
+        ('herbicide', 'Herbicide'),
+        ('fertilizer', 'Engrais'),
+        ('other', 'Autre'),
+    )
+
+    MONTH_CHOICES = (
+        (1, 'Janvier'), (2, 'Février'), (3, 'Mars'), (4, 'Avril'),
+        (5, 'Mai'), (6, 'Juin'), (7, 'Juillet'), (8, 'Août'),
+        (9, 'Septembre'), (10, 'Octobre'), (11, 'Novembre'), (12, 'Décembre'),
+    )
+
+    crop_name = models.CharField(max_length=100)
+    month = models.IntegerField(choices=MONTH_CHOICES)
+    treatment_type = models.CharField(max_length=20, choices=TREATMENT_CHOICES)
+    product_name = models.CharField(max_length=200, help_text="Nom du produit utilisé")
+    dosage = models.CharField(max_length=100, blank=True, help_text="Dosage ou dose d'application")
+    note = models.TextField(blank=True, help_text="Notes (cible, conditions, etc.)")
+
+    class Meta:
+        unique_together = ('crop_name', 'month', 'treatment_type', 'product_name')
+        ordering = ['crop_name', 'month']
+        verbose_name = "Calendrier de traitement"
+        verbose_name_plural = "Calendriers de traitement"
+
+    def __str__(self):
+        return f"{self.crop_name} - {self.get_month_display()} - {self.get_treatment_type_display()}"

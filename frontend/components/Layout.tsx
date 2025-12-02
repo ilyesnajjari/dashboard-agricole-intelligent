@@ -18,6 +18,23 @@ export default function Layout({ children, user }: Props) {
   const [query, setQuery] = React.useState('')
   const [detail, setDetail] = React.useState<any | null>(null)
   const [impLoading, setImpLoading] = React.useState(false)
+  const [navigatingTo, setNavigatingTo] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    const handleStart = (url: string) => setNavigatingTo(url)
+    const handleComplete = () => setNavigatingTo(null)
+    const handleError = () => setNavigatingTo(null)
+
+    router.events.on('routeChangeStart', handleStart)
+    router.events.on('routeChangeComplete', handleComplete)
+    router.events.on('routeChangeError', handleError)
+
+    return () => {
+      router.events.off('routeChangeStart', handleStart)
+      router.events.off('routeChangeComplete', handleComplete)
+      router.events.off('routeChangeError', handleError)
+    }
+  }, [router])
 
   React.useEffect(() => {
     setMe(user)
@@ -63,12 +80,15 @@ export default function Layout({ children, user }: Props) {
             { label: 'Inventaire', href: '/inventaire' },
           ].map((link) => {
             const isActive = link.href === '/' ? router.pathname === '/' : router.pathname?.startsWith(link.href)
+            const isNavigating = navigatingTo === link.href
             return (
               <Button
                 key={link.href}
                 component={Link}
                 href={link.href}
                 variant="text"
+                disabled={isNavigating}
+                startIcon={isNavigating ? <CircularProgress size={20} color="inherit" /> : null}
                 sx={{
                   color: isActive ? 'primary.main' : 'text.secondary',
                   bgcolor: isActive ? (mode === 'light' ? 'rgba(5,150,105,0.1)' : 'rgba(16,185,129,0.1)') : 'transparent',

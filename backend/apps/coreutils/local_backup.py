@@ -34,23 +34,29 @@ def perform_local_backup():
         # 1. Copy SQLite DB
         backup_db_name = f"db_backup_{timestamp}.sqlite3"
         shutil.copy2(DB_PATH, os.path.join(session_dir, backup_db_name))
+
+        # 2. Full JSON Dump (The most complete backup)
+        try:
+            from django.core.management import call_command
+            json_dump_path = os.path.join(session_dir, f"full_dump_{timestamp}.json")
+            with open(json_dump_path, 'w', encoding='utf-8') as f:
+                call_command('dumpdata', stdout=f)
+        except Exception as e:
+            print(f"Warning: JSON dump failed: {e}")
         
-        # 2. Export CSVs
+        # 3. Export CSVs
         export_csvs(DB_PATH, session_dir)
         
-        # 3. Generate all payslips for current year
+        # 4. Generate all payslips for current year
         generate_all_payslips()
         
-        # 4. Cleanup old
+        # 5. Cleanup old
         clean_old_backups(BACKUP_ROOT)
         
-        # 5. Update last_backup_at
+        # 6. Update last_backup_at
         try:
             from apps.coreutils.models import EmailPreference
             from django.utils import timezone
-            # Update all enabled preferences or just the first one found
-            # Since this is a local single-user app mostly, we update all that have enabled it
-            # or just the first one to track the system state.
             EmailPreference.objects.update(last_backup_at=timezone.now())
         except Exception:
             pass
@@ -172,7 +178,15 @@ def export_csvs(db_path, export_dir):
         'logbook_logentry': 'Journal.csv',
         'products_product': 'Produits.csv',
         'sales_market': 'Marches_Clients.csv',
-        'purchases_purchasecategory': 'Categories_Achats.csv'
+        'purchases_purchasecategory': 'Categories_Achats.csv',
+        # New tables
+        'planning_cropcalendar': 'Planning_Cultural.csv',
+        'planning_treatmentcalendar': 'Planning_Phyto.csv',
+        'tasks_dailytask': 'Taches_Quotidiennes.csv',
+        'payroll_employee': 'Salaries.csv',
+        'payroll_worklog': 'Heures_Travail.csv',
+        'inventory_inventoryitem': 'Inventaire.csv',
+        'inventory_inventorycategory': 'Categories_Inventaire.csv'
     }
 
     for table_name, filename in target_tables.items():

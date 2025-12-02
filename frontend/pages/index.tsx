@@ -4,6 +4,8 @@ import Link from 'next/link'
 import KPIcard from '../components/KPIcard'
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts'
 import { GetServerSideProps } from 'next'
+import FloatingWeatherButton from '../components/FloatingWeatherButton'
+import DailyTasksWidget from '../components/DailyTasksWidget'
 
 interface Props {
   initialAnnual: any
@@ -98,7 +100,6 @@ export default function Home({ initialAnnual, initialActivity }: Props) {
           <Button variant="contained" color="primary" component={Link} href="/recoltes">Nouvelle Récolte</Button>
           <Button variant="contained" color="secondary" component={Link} href="/ventes">Nouvelle Vente</Button>
           <Button variant="outlined" component={Link} href="/achats">Nouvel Achat</Button>
-          <Button variant="outlined" component={Link} href="/salaries">Salariés</Button>
           <Button variant="text" component={Link} href="/budget">Budget & Rapports</Button>
         </Box>
       </Box>
@@ -134,6 +135,14 @@ export default function Home({ initialAnnual, initialActivity }: Props) {
           </Grid>
         )}
       </Box>
+
+      {/* Daily Tasks Widget */}
+      <Box sx={{ mb: 3 }}>
+        <DailyTasksWidget />
+      </Box>
+
+      {/* Floating Weather Button */}
+      <FloatingWeatherButton />
 
       <Box>
         <Typography variant="h6" gutterBottom>Comparaison mensuelle</Typography>

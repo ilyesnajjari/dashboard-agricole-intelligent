@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, TextField, MenuItem, Tooltip } from '@mui/material'
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, TextField, MenuItem, Tooltip, Tabs, Tab } from '@mui/material'
 import { Add, Edit, Info, Delete as DeleteIcon } from '@mui/icons-material'
+import TreatmentCalendar from '../components/TreatmentCalendar'
 
 interface CropEvent {
     id: number
@@ -28,6 +29,7 @@ const ACTION_LABELS = {
 }
 
 export default function Planning() {
+    const [tabValue, setTabValue] = useState(0)
     const [events, setEvents] = useState<CropEvent[]>([])
     const [crops, setCrops] = useState<string[]>([])
     const [open, setOpen] = useState(false)
@@ -133,98 +135,112 @@ export default function Planning() {
 
     return (
         <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h4" fontWeight={700}>
                     Planning Annuel
                 </Typography>
-                <Button variant="contained" startIcon={<Add />} onClick={() => {
-                    setEditEvent({ month: 1, action_type: 'plant', note: '' })
-                    setSelectedCell(null)
-                    setOpen(true)
-                }}>
-                    Ajouter une culture
-                </Button>
             </Box>
 
-            <TableContainer component={Paper} sx={{ boxShadow: 3, borderRadius: 2 }}>
-                <Table size="small">
-                    <TableHead>
-                        <TableRow sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100' }}>
-                            <TableCell sx={{ fontWeight: 'bold', width: 200, color: 'text.primary' }}>Culture</TableCell>
-                            {MONTHS.map(m => (
-                                <TableCell key={m} align="center" sx={{ fontWeight: 'bold', color: 'text.primary' }}>{m}</TableCell>
-                            ))}
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {crops.map(crop => (
-                            <TableRow key={crop} hover>
-                                <TableCell component="th" scope="row" sx={{ fontWeight: 500, color: 'text.primary' }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <span>{crop}</span>
-                                        <IconButton
-                                            size="small"
-                                            color="error"
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleDeleteCrop(crop)
-                                            }}
-                                            sx={{ ml: 1 }}
-                                        >
-                                            <DeleteIcon fontSize="small" />
-                                        </IconButton>
-                                    </Box>
-                                </TableCell>
-                                {MONTHS.map((_, monthIndex) => {
-                                    const event = getEventForCell(crop, monthIndex)
-                                    return (
-                                        <TableCell
-                                            key={monthIndex}
-                                            align="center"
-                                            sx={{
-                                                cursor: 'pointer',
-                                                '&:hover': { bgcolor: 'action.hover' },
-                                                borderLeft: '1px solid #eee'
-                                            }}
-                                            onClick={() => handleCellClick(crop, monthIndex)}
-                                        >
-                                            {event ? (
-                                                <Tooltip title={`${ACTION_LABELS[event.action_type]}${event.note ? ': ' + event.note : ''}`}>
-                                                    <Box
-                                                        sx={{
-                                                            width: 24,
-                                                            height: 24,
-                                                            borderRadius: '50%',
-                                                            bgcolor: ACTION_COLORS[event.action_type],
-                                                            mx: 'auto',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            color: 'white',
-                                                            fontSize: 10,
-                                                            boxShadow: 1
-                                                        }}
-                                                    >
-                                                        {event.note && <Info sx={{ fontSize: 14 }} />}
-                                                    </Box>
-                                                </Tooltip>
-                                            ) : (
-                                                <Typography variant="caption" color="text.disabled">➖</Typography>
-                                            )}
+            <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} sx={{ mb: 3 }}>
+                <Tab label="Calendrier Cultural" />
+                <Tab label="Calendrier Phytosanitaire" />
+            </Tabs>
+
+            {tabValue === 0 ? (
+                <>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                        <Button variant="contained" startIcon={<Add />} onClick={() => {
+                            setEditEvent({ month: 1, action_type: 'plant', note: '' })
+                            setSelectedCell(null)
+                            setOpen(true)
+                        }}>
+                            Ajouter une culture
+                        </Button>
+                    </Box>
+
+                    <TableContainer component={Paper} sx={{ boxShadow: 3, borderRadius: 2 }}>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100' }}>
+                                    <TableCell sx={{ fontWeight: 'bold', width: 200, color: 'text.primary' }}>Culture</TableCell>
+                                    {MONTHS.map(m => (
+                                        <TableCell key={m} align="center" sx={{ fontWeight: 'bold', color: 'text.primary' }}>{m}</TableCell>
+                                    ))}
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {crops.map(crop => (
+                                    <TableRow key={crop} hover>
+                                        <TableCell component="th" scope="row" sx={{ fontWeight: 500, color: 'text.primary' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span>{crop}</span>
+                                                <IconButton
+                                                    size="small"
+                                                    color="error"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleDeleteCrop(crop)
+                                                    }}
+                                                    sx={{ ml: 1 }}
+                                                >
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </Box>
                                         </TableCell>
-                                    )
-                                })}
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+                                        {MONTHS.map((_, monthIndex) => {
+                                            const event = getEventForCell(crop, monthIndex)
+                                            return (
+                                                <TableCell
+                                                    key={monthIndex}
+                                                    align="center"
+                                                    sx={{
+                                                        cursor: 'pointer',
+                                                        '&:hover': { bgcolor: 'action.hover' },
+                                                        borderLeft: '1px solid #eee'
+                                                    }}
+                                                    onClick={() => handleCellClick(crop, monthIndex)}
+                                                >
+                                                    {event ? (
+                                                        <Tooltip title={`${ACTION_LABELS[event.action_type]}${event.note ? ': ' + event.note : ''}`}>
+                                                            <Box
+                                                                sx={{
+                                                                    width: 24,
+                                                                    height: 24,
+                                                                    borderRadius: '50%',
+                                                                    bgcolor: ACTION_COLORS[event.action_type],
+                                                                    mx: 'auto',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    color: 'white',
+                                                                    fontSize: 10,
+                                                                    boxShadow: 1
+                                                                }}
+                                                            >
+                                                                {event.note && <Info sx={{ fontSize: 14 }} />}
+                                                            </Box>
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Typography variant="caption" color="text.disabled">➖</Typography>
+                                                    )}
+                                                </TableCell>
+                                            )
+                                        })}
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
 
-            <Box sx={{ mt: 4, display: 'flex', gap: 3, justifyContent: 'center' }}>
-                <Chip label="Plantation / Semis" sx={{ bgcolor: ACTION_COLORS.plant, color: 'white', fontWeight: 'bold' }} />
-                <Chip label="Récolte" sx={{ bgcolor: ACTION_COLORS.harvest, color: 'white', fontWeight: 'bold' }} />
-                <Chip label="Entretien / Taille" sx={{ bgcolor: ACTION_COLORS.care, color: 'black', fontWeight: 'bold' }} />
-            </Box>
+                    <Box sx={{ mt: 4, display: 'flex', gap: 3, justifyContent: 'center' }}>
+                        <Chip label="Plantation / Semis" sx={{ bgcolor: ACTION_COLORS.plant, color: 'white', fontWeight: 'bold' }} />
+                        <Chip label="Récolte" sx={{ bgcolor: ACTION_COLORS.harvest, color: 'white', fontWeight: 'bold' }} />
+                        <Chip label="Entretien / Taille" sx={{ bgcolor: ACTION_COLORS.care, color: 'black', fontWeight: 'bold' }} />
+                    </Box>
+                </>
+            ) : (
+                <TreatmentCalendar crops={crops} onCropsUpdate={setCrops} />
+            )}
 
             <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
                 <DialogTitle>
