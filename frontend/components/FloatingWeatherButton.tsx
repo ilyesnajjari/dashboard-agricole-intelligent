@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Fab, Dialog, DialogTitle, DialogContent, Box, Typography, Grid, Chip, Alert, CircularProgress, Tooltip, IconButton, Select, MenuItem, FormControl, InputLabel } from '@mui/material'
+import { Fab, Dialog, DialogTitle, DialogContent, Box, Typography, Grid, Chip, Alert, CircularProgress, Tooltip, IconButton, Select, MenuItem, FormControl, InputLabel, DialogActions, Button } from '@mui/material'
 import { CloudQueue, WbSunny, Opacity, Air, Warning, Close } from '@mui/icons-material'
 import { fetchWeather, getCachedWeather, isCacheStale, getWeatherDescription, getWeatherIcon, getAgriculturalAlerts, WeatherData, CityName, CITIES } from '../api/weather'
 
@@ -39,6 +39,7 @@ export default function FloatingWeatherButton() {
         }
     }
 
+
     useEffect(() => {
         // Load weather when city changes
         if (open) {
@@ -72,16 +73,21 @@ export default function FloatingWeatherButton() {
             {/* Floating Action Button */}
             <Fab
                 color="primary"
+                variant="extended"
                 aria-label="météo"
                 onClick={handleOpen}
                 sx={{
                     position: 'fixed',
                     bottom: 24,
                     right: 24,
-                    zIndex: 1000
+                    zIndex: 1000,
+                    px: 2
                 }}
             >
-                <CloudQueue />
+                <CloudQueue sx={{ mr: 1 }} />
+                <Typography variant="button" sx={{ lineHeight: 1.2 }}>
+                    Météo
+                </Typography>
             </Fab>
 
             {/* Weather Dialog */}
@@ -183,6 +189,7 @@ export default function FloatingWeatherButton() {
                                 </Box>
                             )}
 
+
                             {/* 7-Day Forecast */}
                             <Box>
                                 <Typography variant="subtitle2" fontWeight={600} gutterBottom>
@@ -232,6 +239,7 @@ export default function FloatingWeatherButton() {
                     ) : null}
                 </DialogContent>
             </Dialog>
+
         </>
     )
 }

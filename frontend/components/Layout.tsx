@@ -6,6 +6,7 @@ import { listUsersForImpersonation, startImpersonation, stopImpersonation } from
 import Brightness4Icon from '@mui/icons-material/Brightness4'
 import Brightness7Icon from '@mui/icons-material/Brightness7'
 import { ColorModeContext } from '../theme'
+import FloatingWeatherButton from './FloatingWeatherButton'
 
 type Props = { children: React.ReactNode, user?: any }
 
@@ -144,6 +145,7 @@ export default function Layout({ children, user }: Props) {
           <Button onClick={() => setDetail(null)}>Fermer</Button>
         </DialogActions>
       </Dialog>
+      <FloatingWeatherButton />
     </Box>
   )
 }

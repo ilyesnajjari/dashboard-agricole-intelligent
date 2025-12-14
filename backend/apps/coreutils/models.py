@@ -29,3 +29,18 @@ class UserSecurity(models.Model):
 
     def __str__(self):
         return f"Security for {self.user.username}"
+
+
+class FrostSeason(models.Model):
+    """Tracks accumulated frost hours (< 7.5°C) for a season (Nov-Mar)"""
+    city = models.CharField(max_length=100)
+    season_start_year = models.IntegerField(help_text="Year the season started (e.g., 2025 for 2025-2026)")
+    frost_hours = models.FloatField(default=0.0, help_text="Accumulated hours < 7.5°C")
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['city', 'season_start_year']
+        ordering = ['-season_start_year', 'city']
+
+    def __str__(self):
+        return f"{self.city} - Saison {self.season_start_year}-{self.season_start_year+1}: {self.frost_hours}h"

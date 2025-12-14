@@ -11,7 +11,12 @@ import io
 from django.core.mail import EmailMessage
 from apps.harvests.models import Harvest
 from apps.sales.models import Sale
+from apps.sales.models import Sale
 from apps.purchases.models import Purchase
+from .models import FrostSeason
+from .models import FrostSeason
+from .weather_service import get_current_season_start_year, update_all_cities, calculate_frost_hours
+from rest_framework.views import APIView
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -160,3 +165,66 @@ class EmailPreferenceViewSet(viewsets.ModelViewSet):
             return Response({'detail': message})
         else:
             return Response({'detail': message}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class FrostHoursView(APIView):
+    """
+    Returns accumulated frost hours for the current season for all cities.
+    """
+    def get(self, request):
+        season_start = get_current_season_start_year()
+        
+        # Get data from DB
+        data = FrostSeason.objects.filter(season_start_year=season_start)
+        
+        # If no data or force update requested, trigger an update
+        force_update = request.query_params.get('force') == 'true'
+        
+        if not data.exists() or force_update:
+            update_all_cities()
+            data = FrostSeason.objects.filter(season_start_year=season_start)
+            
+        results = {
+            item.city: item.frost_hours for item in data
+        }
+        
+        return Response({
+            'season': f"{season_start}-{season_start+1}",
+            'hours': results
+        })
+
+class FrostCalculatorView(APIView):
+    """
+    Calculates frost hours for a specific city and date range.
+    Query params:
+    - city: City name (default: Monteux)
+    - start_date: YYYY-MM-DD
+    - end_date: YYYY-MM-DD (optional, defaults to today)
+    """
+    def get(self, request):
+        city = request.query_params.get('city', 'Monteux')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        if not start_date:
+            return Response({'detail': 'start_date is required'}, status=400)
+            
+        try:
+            from datetime import datetime
+            start = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end = None
+            if end_date:
+                end = datetime.strptime(end_date, '%Y-%m-%d').date()
+                
+            hours = calculate_frost_hours(city, start, end)
+            
+            return Response({
+                'city': city,
+                'start_date': start_date,
+                'end_date': end_date or 'today',
+                'frost_hours': hours
+            })
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=400)
+        except Exception as e:
+            return Response({'detail': f'Error: {str(e)}'}, status=500)

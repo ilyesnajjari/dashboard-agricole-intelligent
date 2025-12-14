@@ -274,3 +274,17 @@ export const isCacheStale = (city: CityName = 'Monteux'): boolean => {
     const cacheAge = Date.now() - new Date(cached.lastUpdated).getTime()
     return cacheAge > CACHE_DURATION
 }
+
+export interface FrostHoursResponse {
+    season: string
+    hours: Record<string, number>
+}
+
+export const fetchFrostHours = async (force: boolean = false): Promise<FrostHoursResponse> => {
+    const url = force ? '/api/weather/frost-hours/?force=true' : '/api/weather/frost-hours/'
+    const response = await fetch(url)
+    if (!response.ok) {
+        throw new Error('Failed to fetch frost hours')
+    }
+    return response.json()
+}

@@ -240,7 +240,14 @@ export default function InventairePage() {
                             </FormControl>
                         </Grid>
                         <Grid item xs={6}>
-                            <TextField fullWidth type="number" label="Quantité" value={itemForm.quantity} onChange={e => setItemForm({ ...itemForm, quantity: Number(e.target.value) })} />
+                            <TextField
+                                fullWidth
+                                type="number"
+                                label="Quantité"
+                                value={itemForm.quantity}
+                                onChange={e => setItemForm({ ...itemForm, quantity: Number(e.target.value) })}
+                                onFocus={e => itemForm.quantity === 0 && setItemForm({ ...itemForm, quantity: '' as any })}
+                            />
                         </Grid>
                         <Grid item xs={6}>
                             <TextField fullWidth label="Unité (ex: m, kg, pcs)" value={itemForm.unit} onChange={e => setItemForm({ ...itemForm, unit: e.target.value })} />

@@ -1,21 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { Box, Typography, Card, CardContent, CardMedia, IconButton, Fab, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip, Stack, CircularProgress } from '@mui/material'
-import { Add, Delete, CalendarToday, LocalOffer, Edit } from '@mui/icons-material'
+import { Add, Delete, CalendarToday, LocalOffer, Edit, AcUnit } from '@mui/icons-material'
+import { fetchLogEntries, fetchLogCategories, createLogCategory, deleteLogCategory, deleteLogEntry, createLogEntry, updateLogEntry, LogEntry as ApiLogEntry, LogCategory as ApiLogCategory } from '../api/logbook'
+import FrostCalculatorDialog from '../components/FrostCalculatorDialog'
 
-interface LogCategory {
-    id: number
-    name: string
-    color: string
-}
+// Re-export or alias if needed, but we can use the API types directly
+type LogCategory = ApiLogCategory
+type LogEntry = ApiLogEntry
 
-interface LogEntry {
-    id: number
-    date: string
-    category: number // ID of the category
-    category_details: LogCategory
-    content: string
-    tags: string
-}
+// Old FrostHoursDisplay removed
 
 export default function Logbook() {
     const [entries, setEntries] = useState<LogEntry[]>([])
@@ -30,6 +23,10 @@ export default function Logbook() {
     const [filterCategory, setFilterCategory] = useState<string>('all')
     const [filterTag, setFilterTag] = useState<string>('all')
 
+    // Frost Calculator State
+    const [frostOpen, setFrostOpen] = useState(false)
+    const [frostDate, setFrostDate] = useState<string | undefined>(undefined)
+
     // Extract unique tags from entries
     const availableTags = Array.from(new Set(
         entries.flatMap(entry => entry.tags ? entry.tags.split(',').map(tag => tag.trim()) : [])
@@ -42,9 +39,7 @@ export default function Logbook() {
 
     const fetchCategories = async () => {
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
-            const res = await fetch(`${apiBase}/log-categories/`)
-            const data = await res.json()
+            const data = await fetchLogCategories()
             setCategories(data)
             if (data.length > 0 && !newEntry.category) {
                 setNewEntry(prev => ({ ...prev, category: data[0].id.toString() }))
@@ -56,9 +51,7 @@ export default function Logbook() {
 
     const fetchEntries = async () => {
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
-            const res = await fetch(`${apiBase}/logbook/`)
-            const data = await res.json()
+            const data = await fetchLogEntries()
             setEntries(data)
         } catch (error) {
             console.error('Error fetching logbook:', error)
@@ -69,20 +62,12 @@ export default function Logbook() {
         if (!newCategory.name) return
         setSubmitting(true)
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
-            // On envoie une couleur par défaut car le backend l'attend peut-être encore, mais on ne l'utilise plus visuellement
-            const payload = { name: newCategory.name, color: '#000000' }
-            const res = await fetch(`${apiBase}/log-categories/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            })
-            if (res.ok) {
-                setNewCategory({ name: '', color: '#1976d2' })
-                fetchCategories()
-            }
+            await createLogCategory(newCategory.name, '#1976d2')
+            setNewCategory({ name: '', color: '#1976d2' })
+            fetchCategories()
         } catch (error) {
             console.error('Error creating category:', error)
+            alert('Erreur: Cette catégorie existe peut-être déjà.')
         } finally {
             setSubmitting(false)
         }
@@ -91,14 +76,10 @@ export default function Logbook() {
     const handleDeleteCategory = async (id: number) => {
         if (!confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ? Les entrées associées perdront leur catégorie.')) return
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
-            const res = await fetch(`${apiBase}/log-categories/${id}/`, { method: 'DELETE' })
-            if (res.ok) {
-                fetchCategories()
-                // Si la catégorie supprimée était sélectionnée dans le filtre, on remet à 'all'
-                if (filterCategory === id.toString()) {
-                    setFilterCategory('all')
-                }
+            await deleteLogCategory(id)
+            fetchCategories()
+            if (filterCategory === id.toString()) {
+                setFilterCategory('all')
             }
         } catch (error) {
             console.error('Error deleting category:', error)
@@ -116,13 +97,8 @@ export default function Logbook() {
         if (!id) return
         setSubmitting(true)
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
-            const res = await fetch(`${apiBase}/logbook/${id}/`, { method: 'DELETE', credentials: 'include' })
-            if (res.ok) {
-                fetchEntries()
-            } else {
-                console.error('Failed to delete', res.statusText)
-            }
+            await deleteLogEntry(id)
+            fetchEntries()
         } catch (error) {
             console.error('Error deleting entry:', error)
         } finally {
@@ -138,7 +114,6 @@ export default function Logbook() {
 
     const handleUpdate = async () => {
         if (!editEntry) return
-
         const formData = new FormData()
         formData.append('content', editEntry.content)
         formData.append('category', editEntry.category.toString())
@@ -147,19 +122,10 @@ export default function Logbook() {
 
         setSubmitting(true)
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
-            const res = await fetch(`${apiBase}/logbook/${editEntry.id}/`, {
-                method: 'PUT',
-                body: formData,
-                credentials: 'include',
-            })
-            if (res.ok) {
-                setEditOpen(false)
-                setEditEntry(null)
-                fetchEntries()
-            } else {
-                console.error('Failed to update', res.statusText)
-            }
+            await updateLogEntry(editEntry.id, formData)
+            setEditOpen(false)
+            setEditEntry(null)
+            fetchEntries()
         } catch (error) {
             console.error('Error updating entry:', error)
         } finally {
@@ -178,12 +144,7 @@ export default function Logbook() {
 
         setSubmitting(true)
         try {
-            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
-            await fetch(`${apiBase}/logbook/`, {
-                method: 'POST',
-                body: formData,
-                credentials: 'include',
-            })
+            await createLogEntry(formData)
             setOpen(false)
             setNewEntry(prev => ({ ...prev, content: '', tags: '' }))
             fetchEntries()
@@ -203,6 +164,9 @@ export default function Logbook() {
                 <Stack direction="row" spacing={2}>
                     <Button variant="outlined" onClick={() => setCategoryOpen(true)}>
                         Gérer les catégories
+                    </Button>
+                    <Button variant="contained" color="info" startIcon={<AcUnit />} onClick={() => { setFrostDate(undefined); setFrostOpen(true) }}>
+                        Calculateur Froid
                     </Button>
                     <Fab color="primary" onClick={() => setOpen(true)}>
                         <Add />
@@ -286,6 +250,19 @@ export default function Logbook() {
                                 >
                                     <Delete />
                                 </IconButton>
+                                <IconButton
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        setFrostDate(entry.date)
+                                        setFrostOpen(true)
+                                    }}
+                                    size="small"
+                                    color="info"
+                                    title="Calculer heures de froid"
+                                >
+                                    <AcUnit />
+                                </IconButton>
                             </Box>
                             <CardContent>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, color: 'text.secondary' }}>
@@ -297,7 +274,7 @@ export default function Logbook() {
                                         label={entry.category_details?.name || 'Sans catégorie'}
                                         size="small"
                                         variant="outlined"
-                                        sx={{ ml: 'auto', mr: 10 }}
+                                        sx={{ ml: 'auto', mr: 18 }}
                                     />
                                 </Box>
 
@@ -458,6 +435,12 @@ export default function Logbook() {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <FrostCalculatorDialog
+                open={frostOpen}
+                onClose={() => setFrostOpen(false)}
+                initialDate={frostDate}
+            />
         </Box>
     )
 }

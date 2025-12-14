@@ -206,6 +206,12 @@ export default function VentesPage() {
     { field: 'market', headerName: 'Marché / Client', flex: 1, editable: true, valueGetter: (value, row) => row?.market_name || '' },
     { field: 'quantity_kg', headerName: 'Quantité (kg)', type: 'number', flex: 1, editable: true },
     {
+      field: 'unit_price', headerName: 'Prix Unitaire (€)', type: 'number', flex: 1, editable: true, valueFormatter: (params: any) => {
+        const val = (params && typeof params === 'object' && 'value' in params) ? params.value : params
+        return (val !== undefined && val !== null && val !== '') ? `${Number(val).toFixed(2)} €` : ''
+      }
+    },
+    {
       field: 'total_amount', headerName: 'Total (€)', type: 'number', flex: 1, valueFormatter: (params: any) => {
         const val = (params && typeof params === 'object' && 'value' in params) ? params.value : params
         return (val !== undefined && val !== null && val !== '') ? `${Number(val).toFixed(2)} €` : ''
@@ -245,7 +251,7 @@ export default function VentesPage() {
   const processRowUpdate = async (newRow: GridRowModel, oldRow: GridRowModel) => {
     try {
       const changed: any = {}
-        ; (['market', 'quantity_kg'] as const).forEach(k => {
+        ; (['market', 'quantity_kg', 'unit_price'] as const).forEach(k => {
           if (newRow[k] !== oldRow[k]) changed[k] = newRow[k]
         })
       if (Object.keys(changed).length) {
@@ -383,7 +389,7 @@ export default function VentesPage() {
               <TextField
                 fullWidth
                 type="number"
-                inputProps={{ step: '1' }}
+                inputProps={{ step: '0.01' }}
                 label="Total encaissé (€)"
                 value={form.total_amount_input || ''}
                 onChange={(e) => setForm({ ...form, total_amount_input: Number(e.target.value) })}
@@ -397,7 +403,7 @@ export default function VentesPage() {
                 <TextField
                   fullWidth
                   type="number"
-                  inputProps={{ step: '1' }}
+                  inputProps={{ step: '0.01' }}
                   label="Quantité (kg)"
                   value={form.quantity_kg || ''}
                   onChange={(e) => setForm({ ...form, quantity_kg: Number(e.target.value) })}
@@ -409,7 +415,7 @@ export default function VentesPage() {
                 <TextField
                   fullWidth
                   type="number"
-                  inputProps={{ step: '1' }}
+                  inputProps={{ step: '0.01' }}
                   label="Prix Unitaire (€/kg)"
                   value={form.unit_price || ''}
                   onChange={(e) => setForm({ ...form, unit_price: Number(e.target.value) })}

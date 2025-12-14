@@ -362,7 +362,9 @@ def impersonate_users(request):
 
 from apps.logbook.views import LogEntryViewSet, LogCategoryViewSet
 from apps.sales.views import MarketViewSet
-from apps.coreutils.views import EmailPreferenceViewSet
+from apps.sales.views import MarketViewSet
+from apps.coreutils.views import EmailPreferenceViewSet, FrostHoursView, FrostCalculatorView
+from apps.payroll.views import EmployeeViewSet, WorkLogViewSet
 from apps.payroll.views import EmployeeViewSet, WorkLogViewSet
 from apps.planning.views import CropCalendarViewSet, TreatmentCalendarViewSet
 from apps.inventory.views import InventoryCategoryViewSet, InventoryItemViewSet
@@ -418,4 +420,6 @@ urlpatterns = [
     # Annual KPI for a given year (defaults to current year) with monthly breakdown (robust)
     path('kpi/annual/', annual_kpi_view),
     path('dashboard/recent-activity/', recent_activity_view),
+    path('weather/frost-hours/', FrostHoursView.as_view()),
+    path('weather/frost-calculator/', FrostCalculatorView.as_view()),
 ]
