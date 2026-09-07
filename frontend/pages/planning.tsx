@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, TextField, MenuItem, Tooltip, Tabs, Tab } from '@mui/material'
 import { Add, Edit, Info, Delete as DeleteIcon } from '@mui/icons-material'
 import TreatmentCalendar from '../components/TreatmentCalendar'
+import DoseConverter from '../components/DoseConverter'
 
 interface CropEvent {
     id: number
@@ -58,10 +59,9 @@ export default function Planning() {
 
     const handleCellClick = (crop: string, month: number) => {
         setSelectedCell({ crop, month })
-        // Find existing event if any (prioritize care > harvest > plant for display if multiple, but usually one per cell)
-        // Actually, let's support finding the event to edit
-        const existing = events.find(e => e.crop_name === crop && e.month === month + 1)
-        setEditEvent(existing || { crop_name: crop, month: month + 1, action_type: 'plant', note: '' })
+        // When clicking a cell, prepare to add a new event (don't auto-select an existing one)
+        // The dialog will show existing events and allow adding a new one
+        setEditEvent({ crop_name: crop, month: month + 1, action_type: 'plant', note: '' })
         setOpen(true)
     }
 
@@ -128,9 +128,88 @@ export default function Planning() {
         }
     }
 
-    const getEventForCell = (crop: string, monthIndex: number) => {
+    const handleRenameCrop = async (oldName: string) => {
+        const newName = window.prompt("Entrez le nouveau nom pour la culture :", oldName)
+        if (!newName || newName.trim() === '' || newName === oldName) return
+
+        setSubmitting(true)
+        try {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+
+            // Rename in Crop Calendars
+            const cropEvents = events.filter(e => e.crop_name === oldName)
+            await Promise.all(
+                cropEvents.map(event =>
+                    fetch(`${apiBase}/crop-calendars/${event.id}/`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ crop_name: newName.trim() })
+                    })
+                )
+            )
+
+            // Rename in Treatment Calendars to maintain consistency
+            try {
+                const treatRes = await fetch(`${apiBase}/treatment-calendars/`)
+                if (treatRes.ok) {
+                    const treatData = await treatRes.json()
+                    const matchingTreats = treatData.filter((t: any) => t.crop_name === oldName)
+                    await Promise.all(
+                        matchingTreats.map((t: any) =>
+                            fetch(`${apiBase}/treatment-calendars/${t.id}/`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ crop_name: newName.trim() })
+                            })
+                        )
+                    )
+                }
+            } catch (e) { console.error('Error renaming treatments', e) }
+
+            fetchEvents()
+        } catch (error) {
+            console.error('Error renaming crop:', error)
+            alert("Erreur lors du renommage.")
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const getEventsForCell = (crop: string, monthIndex: number) => {
         // Month index is 0-11, db is 1-12
-        return events.find(e => e.crop_name === crop && e.month === monthIndex + 1)
+        return events.filter(e => e.crop_name === crop && e.month === monthIndex + 1)
+    }
+
+    // Component to display multiple specific action indicators
+    const MultiColorIndicator = ({ events }: { events: CropEvent[] }) => {
+        if (events.length === 0) return null
+
+        return (
+            <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap">
+                {events.map((event, index) => (
+                    <Tooltip key={`${event.id}-${index}`} title={`${ACTION_LABELS[event.action_type]}${event.note ? ': ' + event.note : ''}`}>
+                        <Box
+                            sx={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: '50%',
+                                bgcolor: ACTION_COLORS[event.action_type],
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                fontSize: 9,
+                                boxShadow: 1,
+                                border: '1px solid rgba(0,0,0,0.1)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {event.note ? <Info sx={{ fontSize: 13 }} /> : ''}
+                        </Box>
+                    </Tooltip>
+                ))}
+            </Stack>
+        )
     }
 
     return (
@@ -144,6 +223,7 @@ export default function Planning() {
             <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} sx={{ mb: 3 }}>
                 <Tab label="Calendrier Cultural" />
                 <Tab label="Calendrier Phytosanitaire" />
+                <Tab label="Convertisseur de Doses" />
             </Tabs>
 
             {tabValue === 0 ? (
@@ -174,21 +254,32 @@ export default function Planning() {
                                         <TableCell component="th" scope="row" sx={{ fontWeight: 500, color: 'text.primary' }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                 <span>{crop}</span>
-                                                <IconButton
-                                                    size="small"
-                                                    color="error"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        handleDeleteCrop(crop)
-                                                    }}
-                                                    sx={{ ml: 1 }}
-                                                >
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
+                                                <Box>
+                                                    <IconButton
+                                                        size="small"
+                                                        color="primary"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleRenameCrop(crop)
+                                                        }}
+                                                    >
+                                                        <Edit fontSize="small" />
+                                                    </IconButton>
+                                                    <IconButton
+                                                        size="small"
+                                                        color="error"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleDeleteCrop(crop)
+                                                        }}
+                                                    >
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Box>
                                             </Box>
                                         </TableCell>
                                         {MONTHS.map((_, monthIndex) => {
-                                            const event = getEventForCell(crop, monthIndex)
+                                            const cellEvents = getEventsForCell(crop, monthIndex)
                                             return (
                                                 <TableCell
                                                     key={monthIndex}
@@ -200,26 +291,8 @@ export default function Planning() {
                                                     }}
                                                     onClick={() => handleCellClick(crop, monthIndex)}
                                                 >
-                                                    {event ? (
-                                                        <Tooltip title={`${ACTION_LABELS[event.action_type]}${event.note ? ': ' + event.note : ''}`}>
-                                                            <Box
-                                                                sx={{
-                                                                    width: 24,
-                                                                    height: 24,
-                                                                    borderRadius: '50%',
-                                                                    bgcolor: ACTION_COLORS[event.action_type],
-                                                                    mx: 'auto',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    color: 'white',
-                                                                    fontSize: 10,
-                                                                    boxShadow: 1
-                                                                }}
-                                                            >
-                                                                {event.note && <Info sx={{ fontSize: 14 }} />}
-                                                            </Box>
-                                                        </Tooltip>
+                                                    {cellEvents.length > 0 ? (
+                                                        <MultiColorIndicator events={cellEvents} />
                                                     ) : (
                                                         <Typography variant="caption" color="text.disabled">➖</Typography>
                                                     )}
@@ -238,22 +311,88 @@ export default function Planning() {
                         <Chip label="Entretien / Taille" sx={{ bgcolor: ACTION_COLORS.care, color: 'black', fontWeight: 'bold' }} />
                     </Box>
                 </>
-            ) : (
+            ) : tabValue === 1 ? (
                 <TreatmentCalendar crops={crops} onCropsUpdate={setCrops} />
+            ) : (
+                <DoseConverter />
             )}
 
-            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+            <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>
-                    {editEvent.id ? 'Modifier l\'action' : 'Nouvelle action'}
+                    {editEvent.id ? 'Modifier l\'action' : selectedCell ? `${selectedCell.crop} - ${MONTHS[selectedCell.month]}` : 'Nouvelle action'}
                 </DialogTitle>
                 <DialogContent>
+                    {/* Show existing events for this cell */}
+                    {selectedCell && !editEvent.id && (() => {
+                        const existingEvents = getEventsForCell(selectedCell.crop, selectedCell.month)
+                        return existingEvents.length > 0 ? (
+                            <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                                    Actions existantes :
+                                </Typography>
+                                <Stack spacing={1}>
+                                    {existingEvents.map(evt => (
+                                        <Box key={evt.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+                                            <Box
+                                                sx={{
+                                                    width: 16,
+                                                    height: 16,
+                                                    borderRadius: '50%',
+                                                    bgcolor: ACTION_COLORS[evt.action_type],
+                                                    flexShrink: 0
+                                                }}
+                                            />
+                                            <Typography variant="body2" sx={{ flex: 1 }}>
+                                                {ACTION_LABELS[evt.action_type]}
+                                                {evt.note && `: ${evt.note}`}
+                                            </Typography>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => {
+                                                    setEditEvent(evt)
+                                                }}
+                                            >
+                                                <Edit fontSize="small" />
+                                            </IconButton>
+                                            <IconButton
+                                                size="small"
+                                                color="error"
+                                                onClick={async () => {
+                                                    if (confirm('Supprimer cette action ?')) {
+                                                        setSubmitting(true)
+                                                        try {
+                                                            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+                                                            await fetch(`${apiBase}/crop-calendars/${evt.id}/`, { method: 'DELETE' })
+                                                            fetchEvents()
+                                                        } catch (error) {
+                                                            console.error('Error deleting event:', error)
+                                                        } finally {
+                                                            setSubmitting(false)
+                                                        }
+                                                    }
+                                                }}
+                                            >
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </Box>
+                                    ))}
+                                </Stack>
+                            </Box>
+                        ) : null
+                    })()}
+
                     <Stack spacing={3} sx={{ mt: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            {editEvent.id ? 'Modifier l\'action' : 'Ajouter une nouvelle action'}
+                        </Typography>
+
                         <TextField
                             label="Culture"
                             value={editEvent.crop_name || ''}
                             onChange={(e) => setEditEvent({ ...editEvent, crop_name: e.target.value })}
                             fullWidth
                             helperText="Ex: Tomate, Fraise..."
+                            disabled={!!selectedCell}
                         />
 
                         <TextField
@@ -262,6 +401,7 @@ export default function Planning() {
                             value={editEvent.month || ''}
                             onChange={(e) => setEditEvent({ ...editEvent, month: parseInt(e.target.value) })}
                             fullWidth
+                            disabled={!!selectedCell}
                         >
                             {MONTHS.map((m, i) => (
                                 <MenuItem key={i} value={i + 1}>{m}</MenuItem>
@@ -297,9 +437,9 @@ export default function Planning() {
                             Supprimer
                         </Button>
                     )}
-                    <Button onClick={() => setOpen(false)}>Annuler</Button>
+                    <Button onClick={() => { setOpen(false); setEditEvent({}); setSelectedCell(null) }}>Annuler</Button>
                     <Button onClick={handleSave} variant="contained" disabled={submitting}>
-                        Enregistrer
+                        {editEvent.id ? 'Mettre à jour' : 'Ajouter'}
                     </Button>
                 </DialogActions>
             </Dialog>

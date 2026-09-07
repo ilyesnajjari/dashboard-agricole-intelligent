@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import {
     Box, Grid, Paper, Typography, TextField, Button,
-    Select, MenuItem, FormControl, InputLabel, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, CircularProgress, Checkbox
+    Select, MenuItem, FormControl, InputLabel, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, CircularProgress, Checkbox, Chip
 } from '@mui/material'
 import { DataGrid, GridColDef } from '@mui/x-data-grid'
-import { Delete, Edit, Save } from '@mui/icons-material'
+import { Delete, Edit, Save, SelectAll, ClearAll } from '@mui/icons-material'
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts'
 
 interface Employee {
@@ -24,6 +24,21 @@ interface WorkLog {
     notes: string
     paid: boolean
 }
+
+const MONTH_LIST = [
+    { id: 1, name: 'Janvier' },
+    { id: 2, name: 'Février' },
+    { id: 3, name: 'Mars' },
+    { id: 4, name: 'Avril' },
+    { id: 5, name: 'Mai' },
+    { id: 6, name: 'Juin' },
+    { id: 7, name: 'Juillet' },
+    { id: 8, name: 'Août' },
+    { id: 9, name: 'Septembre' },
+    { id: 10, name: 'Octobre' },
+    { id: 11, name: 'Novembre' },
+    { id: 12, name: 'Décembre' }
+]
 
 export default function SalariesPage() {
     const [employees, setEmployees] = useState<Employee[]>([])
@@ -49,7 +64,7 @@ export default function SalariesPage() {
     const [openPdfDialog, setOpenPdfDialog] = useState(false)
     const [pdfForm, setPdfForm] = useState({
         employee: '',
-        month: new Date().getMonth() + 1,
+        months: [new Date().getMonth() + 1] as number[],
         year: new Date().getFullYear()
     })
 
@@ -128,19 +143,53 @@ export default function SalariesPage() {
         }
     }
 
+    const handleToggleMonth = (monthId: number) => {
+        setPdfForm(prev => {
+            const exists = prev.months.includes(monthId)
+            if (exists) {
+                return { ...prev, months: prev.months.filter(m => m !== monthId) }
+            } else {
+                return { ...prev, months: [...prev.months, monthId].sort((a, b) => a - b) }
+            }
+        })
+    }
+
+    const handleSelectAllMonths = () => {
+        setPdfForm(prev => ({
+            ...prev,
+            months: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        }))
+    }
+
+    const handleDeselectAllMonths = () => {
+        setPdfForm(prev => ({
+            ...prev,
+            months: []
+        }))
+    }
+
     const handleDownloadPdf = async () => {
-        if (!pdfForm.employee) return
+        if (!pdfForm.employee || pdfForm.months.length === 0) return
         setSubmitting(true)
         try {
-            const res = await fetch(`${apiBase}/employees/${pdfForm.employee}/payslip/?year=${pdfForm.year}&month=${pdfForm.month}`, {
+            const monthsQuery = pdfForm.months.join(',')
+            const res = await fetch(`${apiBase}/employees/${pdfForm.employee}/payslip/?year=${pdfForm.year}&months=${monthsQuery}`, {
                 credentials: 'include'
             })
             if (res.ok) {
                 const blob = await res.blob()
+                const emp = employees.find(e => String(e.id) === String(pdfForm.employee))
+                const empName = emp ? emp.name.replace(/\s+/g, '_') : 'Salarie'
+
+                const isZip = pdfForm.months.length > 1
+                const downloadName = isZip
+                    ? `Fiches_de_Paie_${empName}_${pdfForm.year}.zip`
+                    : `Fiche_Paie_${String(pdfForm.months[0]).padStart(2, '0')}_${pdfForm.year}.pdf`
+
                 const url = window.URL.createObjectURL(blob)
                 const a = document.createElement('a')
                 a.href = url
-                a.download = `Fiche_Paie_${pdfForm.month}_${pdfForm.year}.pdf`
+                a.download = downloadName
                 document.body.appendChild(a)
                 a.click()
                 a.remove()
@@ -477,12 +526,12 @@ export default function SalariesPage() {
             </Dialog>
 
             {/* Dialog: Generate PDF */}
-            <Dialog open={openPdfDialog} onClose={() => setOpenPdfDialog(false)} maxWidth="xs" fullWidth>
-                <DialogTitle>Générer Fiche de Paie</DialogTitle>
+            <Dialog open={openPdfDialog} onClose={() => setOpenPdfDialog(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Générer Fiches de Paie</DialogTitle>
                 <DialogContent>
                     <Grid container spacing={2} sx={{ mt: 1 }}>
-                        <Grid item xs={12}>
-                            <FormControl fullWidth>
+                        <Grid item xs={12} sm={8}>
+                            <FormControl fullWidth required>
                                 <InputLabel>Salarié</InputLabel>
                                 <Select
                                     value={pdfForm.employee}
@@ -495,17 +544,7 @@ export default function SalariesPage() {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={6}>
-                            <TextField
-                                label="Mois"
-                                type="number"
-                                fullWidth
-                                inputProps={{ min: 1, max: 12 }}
-                                value={pdfForm.month}
-                                onChange={(e) => setPdfForm({ ...pdfForm, month: Number(e.target.value) })}
-                            />
-                        </Grid>
-                        <Grid item xs={6}>
+                        <Grid item xs={12} sm={4}>
                             <TextField
                                 label="Année"
                                 type="number"
@@ -514,15 +553,64 @@ export default function SalariesPage() {
                                 onChange={(e) => setPdfForm({ ...pdfForm, year: Number(e.target.value) })}
                             />
                         </Grid>
+
+                        <Grid item xs={12} sx={{ mt: 1 }}>
+                            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                    Mois à générer ({pdfForm.months.length} sélectionné{pdfForm.months.length > 1 ? 's' : ''}) :
+                                </Typography>
+                                <Box>
+                                    <Button size="small" startIcon={<SelectAll />} onClick={handleSelectAllMonths} sx={{ mr: 1 }}>
+                                        Tout
+                                    </Button>
+                                    <Button size="small" color="inherit" startIcon={<ClearAll />} onClick={handleDeselectAllMonths}>
+                                        Effacer
+                                    </Button>
+                                </Box>
+                            </Box>
+                            <Grid container spacing={1}>
+                                {MONTH_LIST.map((m) => {
+                                    const isSelected = pdfForm.months.includes(m.id)
+                                    return (
+                                        <Grid item xs={6} sm={4} key={m.id}>
+                                            <Chip
+                                                label={m.name}
+                                                clickable
+                                                color={isSelected ? "primary" : "default"}
+                                                variant={isSelected ? "filled" : "outlined"}
+                                                onClick={() => handleToggleMonth(m.id)}
+                                                sx={{
+                                                    width: '100%',
+                                                    justifyContent: 'center',
+                                                    fontWeight: isSelected ? 'bold' : 'normal',
+                                                    fontSize: '0.875rem'
+                                                }}
+                                            />
+                                        </Grid>
+                                    )
+                                })}
+                            </Grid>
+                        </Grid>
                     </Grid>
                 </DialogContent>
-                <DialogActions>
+                <DialogActions sx={{ p: 2 }}>
                     <Button onClick={() => setOpenPdfDialog(false)} disabled={submitting}>Annuler</Button>
-                    <Button onClick={handleDownloadPdf} variant="contained" disabled={submitting || !pdfForm.employee}>
-                        {submitting ? <CircularProgress size={24} color="inherit" /> : 'Télécharger PDF'}
+                    <Button
+                        onClick={handleDownloadPdf}
+                        variant="contained"
+                        disabled={submitting || !pdfForm.employee || pdfForm.months.length === 0}
+                    >
+                        {submitting ? (
+                            <CircularProgress size={24} color="inherit" />
+                        ) : pdfForm.months.length > 1 ? (
+                            `Télécharger ${pdfForm.months.length} fiches (ZIP)`
+                        ) : (
+                            'Télécharger PDF'
+                        )}
                     </Button>
                 </DialogActions>
             </Dialog>
         </Box>
     )
 }
+

@@ -18,3 +18,12 @@ class DailyTaskViewSet(viewsets.ModelViewSet):
         task.save()
         serializer = self.get_serializer(task)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['patch'])
+    def toggle_planned(self, request, pk=None):
+        """Toggle task planned for today status"""
+        task = self.get_object()
+        task.is_planned_today = not task.is_planned_today
+        task.save()
+        serializer = self.get_serializer(task)
+        return Response(serializer.data)

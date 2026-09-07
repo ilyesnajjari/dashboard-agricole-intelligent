@@ -3,6 +3,7 @@ from django.db import models
 class DailyTask(models.Model):
     title = models.CharField(max_length=200, help_text="Description de la tâche")
     completed = models.BooleanField(default=False)
+    is_planned_today = models.BooleanField(default=False, help_text="Sélectionnée pour aujourd'hui")
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 

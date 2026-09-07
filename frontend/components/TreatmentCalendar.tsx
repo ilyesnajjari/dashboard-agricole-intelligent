@@ -64,14 +64,15 @@ export default function TreatmentCalendar({ crops, onCropsUpdate }: Props) {
         }
     }
 
-    const handleCellClick = (crop: string, month: number) => {
-        const existing = treatments.filter(t => t.crop_name === crop && t.month === month + 1)
-        if (existing.length > 0) {
-            // Edit first treatment
-            setEditTreatment(existing[0])
-        } else {
-            setEditTreatment({ crop_name: crop, month: month + 1, treatment_type: 'fungicide', product_name: '', dosage: '', note: '' })
-        }
+    const handleAddTreatment = (crop: string, monthIndex: number, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation()
+        setEditTreatment({ crop_name: crop, month: monthIndex + 1, treatment_type: 'fungicide', product_name: '', dosage: '', note: '' })
+        setOpen(true)
+    }
+
+    const handleEditTreatment = (treatment: TreatmentEvent, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setEditTreatment(treatment)
         setOpen(true)
     }
 
@@ -137,6 +138,53 @@ export default function TreatmentCalendar({ crops, onCropsUpdate }: Props) {
         }
     }
 
+    const handleRenameCrop = async (oldName: string) => {
+        const newName = window.prompt("Entrez le nouveau nom pour la culture :", oldName)
+        if (!newName || newName.trim() === '' || newName === oldName) return
+
+        setSubmitting(true)
+        try {
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000/api'
+
+            // Rename in Treatment Calendars
+            const cropTreatments = treatments.filter(t => t.crop_name === oldName)
+            await Promise.all(
+                cropTreatments.map(treatment =>
+                    fetch(`${apiBase}/treatment-calendars/${treatment.id}/`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ crop_name: newName.trim() })
+                    })
+                )
+            )
+
+            // Rename in Crop Calendars to maintain consistency
+            try {
+                const cropRes = await fetch(`${apiBase}/crop-calendars/`)
+                if (cropRes.ok) {
+                    const cropData = await cropRes.json()
+                    const matchingCrops = cropData.filter((c: any) => c.crop_name === oldName)
+                    await Promise.all(
+                        matchingCrops.map((c: any) =>
+                            fetch(`${apiBase}/crop-calendars/${c.id}/`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ crop_name: newName.trim() })
+                            })
+                        )
+                    )
+                }
+            } catch (e) { console.error('Error renaming crop calendars', e) }
+
+            fetchTreatments()
+        } catch (error) {
+            console.error('Error renaming crop:', error)
+            alert("Erreur lors du renommage.")
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     const getTreatmentsForCell = (crop: string, monthIndex: number) => {
         return treatments.filter(t => t.crop_name === crop && t.month === monthIndex + 1)
     }
@@ -159,17 +207,28 @@ export default function TreatmentCalendar({ crops, onCropsUpdate }: Props) {
                                 <TableCell component="th" scope="row" sx={{ fontWeight: 500, color: 'text.primary' }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span>{crop}</span>
-                                        <IconButton
-                                            size="small"
-                                            color="error"
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleDeleteCrop(crop)
-                                            }}
-                                            sx={{ ml: 1 }}
-                                        >
-                                            <DeleteIcon fontSize="small" />
-                                        </IconButton>
+                                        <Box>
+                                            <IconButton
+                                                size="small"
+                                                color="primary"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleRenameCrop(crop)
+                                                }}
+                                            >
+                                                <Edit fontSize="small" />
+                                            </IconButton>
+                                            <IconButton
+                                                size="small"
+                                                color="error"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleDeleteCrop(crop)
+                                                }}
+                                            >
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </Box>
                                     </Box>
                                 </TableCell>
                                 {MONTHS.map((_, monthIndex) => {
@@ -178,36 +237,49 @@ export default function TreatmentCalendar({ crops, onCropsUpdate }: Props) {
                                         <TableCell
                                             key={monthIndex}
                                             align="center"
-                                            onClick={() => handleCellClick(crop, monthIndex)}
+                                            onClick={() => handleAddTreatment(crop, monthIndex)}
                                             sx={{
                                                 cursor: 'pointer',
                                                 '&:hover': { bgcolor: 'action.hover' },
-                                                p: 0.5
+                                                p: 0.5,
+                                                verticalAlign: 'top'
                                             }}
                                         >
-                                            {cellTreatments.length > 0 ? (
-                                                <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap">
-                                                    {cellTreatments.map(treatment => (
-                                                        <Tooltip key={treatment.id} title={`${TREATMENT_LABELS[treatment.treatment_type]} - ${treatment.product_name}`}>
-                                                            <Chip
-                                                                size="small"
-                                                                label={TREATMENT_LABELS[treatment.treatment_type].substring(0, 3)}
-                                                                sx={{
-                                                                    bgcolor: TREATMENT_COLORS[treatment.treatment_type],
-                                                                    color: 'white',
-                                                                    fontSize: '0.7rem',
-                                                                    height: 20,
-                                                                    minWidth: 35
-                                                                }}
-                                                            />
-                                                        </Tooltip>
-                                                    ))}
-                                                </Stack>
-                                            ) : (
-                                                <IconButton size="small" sx={{ opacity: 0.3 }}>
+                                            <Stack spacing={0.5} alignItems="center">
+                                                {cellTreatments.length > 0 && (
+                                                    <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap">
+                                                        {cellTreatments.map(treatment => (
+                                                            <Tooltip key={treatment.id} title={`${TREATMENT_LABELS[treatment.treatment_type]} - ${treatment.product_name}`}>
+                                                                <Chip
+                                                                    onClick={(e: React.MouseEvent) => handleEditTreatment(treatment, e)}
+                                                                    size="small"
+                                                                    label={TREATMENT_LABELS[treatment.treatment_type].substring(0, 3)}
+                                                                    sx={{
+                                                                        bgcolor: TREATMENT_COLORS[treatment.treatment_type],
+                                                                        color: 'white',
+                                                                        fontSize: '0.7rem',
+                                                                        height: 20,
+                                                                        minWidth: 35,
+                                                                        cursor: 'pointer',
+                                                                        '&:hover': { opacity: 0.8 }
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        ))}
+                                                    </Stack>
+                                                )}
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e: React.MouseEvent) => handleAddTreatment(crop, monthIndex, e)}
+                                                    sx={{
+                                                        opacity: cellTreatments.length > 0 ? 0 : 0.3,
+                                                        height: cellTreatments.length > 0 ? 12 : undefined,
+                                                        '&:hover': { opacity: 1 }
+                                                    }}
+                                                >
                                                     <Add fontSize="small" />
                                                 </IconButton>
-                                            )}
+                                            </Stack>
                                         </TableCell>
                                     )
                                 })}

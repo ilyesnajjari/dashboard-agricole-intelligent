@@ -22,10 +22,26 @@ export default function Logbook() {
     const [editEntry, setEditEntry] = useState<LogEntry | null>(null)
     const [filterCategory, setFilterCategory] = useState<string>('all')
     const [filterTag, setFilterTag] = useState<string>('all')
+    const [expandedEntries, setExpandedEntries] = useState<Set<number>>(new Set())
 
     // Frost Calculator State
     const [frostOpen, setFrostOpen] = useState(false)
     const [frostDate, setFrostDate] = useState<string | undefined>(undefined)
+
+    // Character limit for truncation
+    const CHAR_LIMIT = 300
+
+    const toggleExpanded = (entryId: number) => {
+        setExpandedEntries(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(entryId)) {
+                newSet.delete(entryId)
+            } else {
+                newSet.add(entryId)
+            }
+            return newSet
+        })
+    }
 
     // Extract unique tags from entries
     const availableTags = Array.from(new Set(
@@ -278,9 +294,32 @@ export default function Logbook() {
                                     />
                                 </Box>
 
-                                <Typography variant="body1" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
-                                    {entry.content}
-                                </Typography>
+                                <Box>
+                                    {(() => {
+                                        const isExpanded = expandedEntries.has(entry.id)
+                                        const needsTruncation = entry.content.length > CHAR_LIMIT
+                                        const displayContent = needsTruncation && !isExpanded
+                                            ? entry.content.substring(0, CHAR_LIMIT) + '...'
+                                            : entry.content
+
+                                        return (
+                                            <>
+                                                <Typography variant="body1" sx={{ mb: 1, whiteSpace: 'pre-wrap' }}>
+                                                    {displayContent}
+                                                </Typography>
+                                                {needsTruncation && (
+                                                    <Button
+                                                        size="small"
+                                                        onClick={() => toggleExpanded(entry.id)}
+                                                        sx={{ textTransform: 'none', p: 0, minWidth: 'auto', fontWeight: 600 }}
+                                                    >
+                                                        {isExpanded ? 'Voir moins' : 'Voir plus'}
+                                                    </Button>
+                                                )}
+                                            </>
+                                        )
+                                    })()}
+                                </Box>
 
                                 {entry.tags && (
                                     <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
